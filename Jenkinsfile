@@ -30,24 +30,20 @@ pipeline {
         // ── Stage 2: Build với Maven ──────────────────────────
         stage('Build') {
             steps {
-                dir('ondas_be') {
-                    sh 'mvn clean package -DskipTests -B --no-transfer-progress'
-                    echo 'Build JAR thành công'
-                }
+                sh 'mvn clean package -DskipTests -B --no-transfer-progress'
+                echo 'Build JAR thành công'
             }
         }
 
         // ── Stage 3: Unit Tests ────────────────────────────────
         stage('Test') {
             steps {
-                dir('ondas_be') {
-                    sh 'mvn test -B --no-transfer-progress'
-                }
+                sh 'mvn test -B --no-transfer-progress'
             }
             post {
                 always {
                     junit allowEmptyResults: true,
-                          testResults: 'ondas_be/target/surefire-reports/*.xml'
+                          testResults: 'target/surefire-reports/*.xml'
                 }
             }
         }
@@ -55,10 +51,8 @@ pipeline {
         // ── Stage 4: Build Docker Image ────────────────────────
         stage('Build Docker Image') {
             steps {
-                dir('ondas_be') {
-                    sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} -t ${IMAGE_NAME}:latest ."
-                    echo "Docker image: ${IMAGE_NAME}:${IMAGE_TAG}"
-                }
+                sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} -t ${IMAGE_NAME}:latest ."
+                echo "Docker image: ${IMAGE_NAME}:${IMAGE_TAG}"
             }
         }
 
@@ -94,7 +88,7 @@ pipeline {
                     """
 
                     // Bước 2: Copy docker-compose.prod.yml vào thư mục deploy
-                    sh "cp ondas_be/docker-compose.prod.yml ${DEPLOY_DIR}/docker-compose.prod.yml"
+                    sh "cp docker-compose.prod.yml ${DEPLOY_DIR}/docker-compose.prod.yml"
 
                     // Bước 3: Pull image mới và restart (dùng host Docker qua socket)
                     sh """
