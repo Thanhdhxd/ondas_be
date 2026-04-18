@@ -1,197 +1,135 @@
-# Project Instructions — Ondas Backend (Spring Boot)
+# Instructions — Ondas Backend
 
-> **Phạm vi áp dụng**: Toàn bộ project `ondas_be`
-> **Stack**: Spring Boot 3.x + Java 17 + PostgreSQL + JWT + MinIO/S3
-> **Kiến trúc**: Onion Architecture — 4 tầng: `domain` → `application` → `infrastructure` → `presentation`
-
----
-
-## 1. TỔNG QUAN DỰ ÁN
-
-Ondas là ứng dụng nghe nhạc trực tuyến. Backend cung cấp REST API cho:
-
-| Client        | Mô tả                                      |
-|---------------|--------------------------------------------|
-| Mobile App    | Flutter — User: nghe nhạc, playlist, yêu thích |
-| Admin Web     | Flutter Web — Quản lý bài hát, user, thống kê |
-
-**Package gốc**: `com.example.ondas` (điều chỉnh theo cấu hình dự án thực tế)
+> **Phạm vi**: Toàn bộ project `ondas_be`
+> **Mục đích**: Quy tắc bắt buộc cho developer và AI khi sinh/chỉnh sửa code.
 
 ---
 
-## 2. CẤU TRÚC THƯ MỤC — BẮT BUỘC TUÂN THỦ
+## 1. CẤU TRÚC THƯ MỤC — BẮT BUỘC TUÂN THỦ
 
 ```
 src/main/java/com/example/ondas/
 │
-├── presentation/                          # Tầng giao diện / API
-│   ├── controller/                        # REST Controller
-│   │   ├── AuthController.java
-│   │   ├── SongController.java
-│   │   └── ...
-│   └── advice/                            # Exception handler toàn cục
-│       └── GlobalExceptionHandler.java
+├── presentation/
+│   ├── controller/                # REST Controller
+│   └── advice/                    # GlobalExceptionHandler
 │
-├── application/                           # Tầng nghiệp vụ
+├── application/
 │   ├── service/
-│   │   ├── port/                          # Interface (contract) của service
-│   │   │   ├── AuthServicePort.java
-│   │   │   ├── SongServicePort.java
-│   │   │   └── ...
-│   │   └── impl/                          # Implementation của service
-│   │       ├── AuthService.java
-│   │       ├── SongService.java
-│   │       └── ...
-│   └── dto/
-│       ├── common/                        # DTO dùng chung
-│       │   ├── PageResultDto.java
-│       │   └── GetListQueryDto.java
-│       ├── request/                       # DTO cho request body
-│       │   ├── LoginDto.java
-│       │   ├── CreateSongDto.java
-│       │   └── ...
-│       └── response/                      # DTO cho response body
-│           ├── UserDto.java
-│           ├── SongDto.java
-│           └── ...
+│   │   ├── port/                  # Interface (contract) của service
+│   │   └── impl/                  # Implementation của service
+│   ├── dto/
+│   │   ├── common/                # ApiResponse, PageResultDto, ...
+│   │   ├── request/               # *Request DTO
+│   │   └── response/              # *Response DTO
+│   └── mapper/                    # MapStruct interface
 │
-├── infrastructure/                        # Tầng truy cập dữ liệu & dịch vụ ngoài
+├── infrastructure/
 │   ├── persistence/
-│   │   ├── adapter/                       # implements RepoPort từ domain
-│   │   │   ├── UserAdapter.java
-│   │   │   ├── SongAdapter.java
-│   │   │   └── ...
-│   │   ├── model/                         # JPA Entity (có annotation)
-│   │   │   ├── UserModel.java
-│   │   │   ├── SongModel.java
-│   │   │   └── ...
-│   │   └── jparepo/                       # Spring Data JPA repository
-│   │       ├── UserJpaRepo.java
-│   │       ├── SongJpaRepo.java
-│   │       └── ...
-│   ├── security/                          # JWT, Spring Security config
-│   ├── storage/                           # Upload file (MinIO / S3)
-│   └── websocket/                         # WebSocket (nếu có real-time)
+│   │   ├── adapter/               # Implements *RepoPort
+│   │   ├── model/                 # JPA Entity (@Entity)
+│   │   └── jparepo/               # Spring Data JPA repo
+│   ├── security/                  # JWT filter, Spring Security config
+│   ├── email/                     # Email provider (EmailAdapter)
+│   ├── google/                    # Google API (GoogleAuthAdapter)
+│   ├── storage/                   # MinIO / S3 upload
+│   └── websocket/                 # WebSocket (nếu có)
 │
-└── domain/                                # Tầng nghiệp vụ thuần — KHÔNG phụ thuộc framework
-    ├── entity/                            # Domain Entity thuần Java
-    │   ├── User.java
-    │   ├── Song.java
-    │   └── ...
-    └── repoport/                          # Repository interface (Port)
-        ├── UserRepoPort.java
-        ├── SongRepoPort.java
-        └── ...
-
-src/main/resources/
-├── application.yml
-└── db/migration/                          # Flyway migration scripts
-    ├── V1__init_schema.sql
-    └── ...
+└── domain/
+    ├── entity/                    # Domain Entity — thuần Java
+    └── repoport/                  # Repository interface (Port)
 
 src/test/java/com/example/ondas/
-├── unit/                                  # Unit test (Service, Adapter)
-└── integration/                           # Integration test (API endpoint)
+├── unit/service/                  # Unit test — Service
+└── integration/controller/        # Integration test — Controller
 ```
 
 ---
 
-## 3. NGUYÊN TẮC PHÂN TẦNG — QUAN TRỌNG NHẤT
+## 2. NGUYÊN TẮC PHÂN TẦNG
 
-### 3.1 Dependency rule (Onion Architecture)
+### 2.1 Dependency rule
 
 ```
 presentation  →  application  →  domain
-infrastructure                →  domain
+infrastructure               →  domain
 ```
 
-- **`domain`**: KHÔNG import bất kỳ package Spring / JPA / Lombok nào. Thuần Java.
-- **`application`**: Import domain, KHÔNG import JPA / persistence.
-- **`infrastructure`**: Import domain và Spring/JPA. Implements các Port từ domain.
-- **`presentation`**: Import application (DTO, ServicePort). Không gọi trực tiếp repository.
+| Tầng | Được phép import | Cấm import |
+|---|---|---|
+| `domain` | Lombok | Spring, JPA |
+| `application` | `domain` | `infrastructure` |
+| `infrastructure` | `domain`, Spring, JPA, `application/service/port` | `application/service/impl` |
+| `presentation` | `application/dto`, `application/service/port` | `infrastructure`, `domain/entity` trực tiếp |
 
-### 3.2 Quy tắc giao tiếp giữa các tầng
+### 2.2 Quy tắc quan trọng nhất
 
-| Từ tầng       | Được gọi                          | KHÔNG được gọi              |
-|---------------|-----------------------------------|-----------------------------|
-| `presentation`| `application/service/port/*`     | `infrastructure`, `domain/entity` trực tiếp |
-| `application` | `domain/repoport/*`              | `infrastructure/persistence/*` |
-| `infrastructure` | `domain/entity/*`, `domain/repoport/*` | `application/service/*` |
-
-> ⚠️ **TUYỆT ĐỐI KHÔNG** inject `UserJpaRepo` vào Service. Service chỉ inject `UserRepoPort`.
-
----
-
-## 4. NAMING CONVENTION
-
-### 4.1 Class
-
-| Loại                        | Convention                  | Ví dụ                            |
-|-----------------------------|-----------------------------|----------------------------------|
-| Domain Entity               | `PascalCase` (danh từ số ít)| `User`, `Song`, `Playlist`       |
-| JPA Model                   | `PascalCase + Model`        | `UserModel`, `SongModel`         |
-| Repository Port (interface) | `PascalCase + RepoPort`     | `UserRepoPort`, `SongRepoPort`   |
-| JPA Repository              | `PascalCase + JpaRepo`      | `UserJpaRepo`, `SongJpaRepo`     |
-| Persistence Adapter         | `PascalCase + Adapter`      | `UserAdapter`, `SongAdapter`     |
-| Service Port (interface)    | `PascalCase + ServicePort`  | `AuthServicePort`, `SongServicePort` |
-| Service Implementation      | `PascalCase + Service`      | `AuthService`, `SongService`     |
-| Controller                  | `PascalCase + Controller`   | `AuthController`, `SongController` |
-| DTO Request                 | `Verb + Noun + Dto`         | `LoginDto`, `CreateSongDto`, `UpdateProfileDto` |
-| DTO Response                | `Noun + Dto`                | `UserDto`, `SongDto`, `AuthResponseDto` |
-| Custom Exception            | `PascalCase + Exception`    | `NotFoundException`, `DuplicateSongException` |
-
-### 4.2 Package & File
-
-- Package: `lowercase`, phân cách bằng dấu chấm: `com.example.ondas.application.service`
-- File Java: `PascalCase.java` — khớp với tên class
-
-### 4.3 Database & API
-
-| Loại            | Convention       | Ví dụ                        |
-|-----------------|------------------|------------------------------|
-| Tên bảng        | `snake_case` số nhiều | `users`, `songs`, `playlists` |
-| Tên cột         | `snake_case`     | `created_at`, `artist_id`    |
-| API path        | `kebab-case`     | `/api/songs`, `/api/favorite-songs` |
-| Migration file  | `V{n}__{mô_tả}.sql` | `V1__init_schema.sql`      |
+- **TUYỆT ĐỐI KHÔNG** inject `*JpaRepo` vào Service. Service chỉ inject `*RepoPort`.
+- **TUYỆT ĐỐI KHÔNG** để business logic trong Controller hay Adapter.
+- **TUYỆT ĐỐI KHÔNG** gọi `*Adapter` trực tiếp từ Controller.
+- Infrastructure **được phép** implement interface từ `application/service/port` (vd: `EmailPort`, `StoragePort`) — đây là Dependency Inversion bình thường, không vi phạm kiến trúc.
 
 ---
 
-## 5. CODE PATTERN BẮT BUỘC
+## 3. NAMING CONVENTION
 
-### 5.1 Domain Entity — Thuần Java
+### 3.1 Class
+
+| Loại | Convention | Ví dụ |
+|---|---|---|
+| Domain Entity | `PascalCase` (danh từ số ít) | `User`, `Song`, `Playlist` |
+| JPA Model | `PascalCase + Model` | `UserModel`, `SongModel` |
+| Repository Port | `PascalCase + RepoPort` | `UserRepoPort`, `SongRepoPort` |
+| JPA Repository | `PascalCase + JpaRepo` | `UserJpaRepo`, `SongJpaRepo` |
+| Persistence Adapter | `PascalCase + Adapter` | `UserAdapter`, `SongAdapter` |
+| External Adapter (Third-party)| `PascalCase + Adapter` | `EmailAdapter`, `GoogleAuthAdapter` |
+| Service Port | `PascalCase + ServicePort` | `AuthServicePort`, `SongServicePort` |
+| External Port (Third-party) | `PascalCase + Port` | `EmailPort`, `StoragePort` |
+| Service Impl | `PascalCase + Service` | `AuthService`, `SongService` |
+| Controller | `PascalCase + Controller` | `AuthController`, `SongController` |
+| MapStruct Mapper | `PascalCase + Mapper` | `SongMapper`, `UserMapper` |
+| Request DTO | `Verb + Noun + Request` | `LoginRequest`, `CreateSongRequest` |
+| Response DTO | `Noun + Response` | `UserResponse`, `SongResponse` |
+| Custom Exception | `PascalCase + Exception` | `NotFoundException`, `DuplicateSongException` |
+
+### 3.2 Package & File
+
+- Package: `lowercase` — `com.example.ondas.application.service.impl`
+- File Java: `PascalCase.java` khớp với tên class
+
+### 3.3 Database & API
+
+| Loại | Convention | Ví dụ |
+|---|---|---|
+| Tên bảng | `snake_case` số nhiều | `users`, `songs`, `playlists` |
+| Tên cột | `snake_case` | `created_at`, `artist_id` |
+| API path | `kebab-case` | `/api/songs`, `/api/favorite-songs` |
+
+---
+
+## 4. CODE PATTERN BẮT BUỘC
+
+### 4.1 Domain Entity — thuần Java, Lombok được phép
 
 ```java
 // domain/entity/Song.java
-// KHÔNG có annotation Spring, JPA, Lombok
+@Getter
+@AllArgsConstructor
 public class Song {
     private Long id;
     private String title;
     private Long artistId;
-    private Long albumId;  // nullable — single track
+    private Long albumId;       // nullable — single track
     private String audioUrl;
     private Integer durationSeconds;
 
-    // Constructor, getter, setter viết tay hoặc dùng Java record
-    public Song(Long id, String title, Long artistId, Long albumId,
-                String audioUrl, Integer durationSeconds) {
-        this.id = id;
-        this.title = title;
-        this.artistId = artistId;
-        this.albumId = albumId;
-        this.audioUrl = audioUrl;
-        this.durationSeconds = durationSeconds;
-    }
-
-    // business logic methods (nếu có)
     public boolean isSingle() {
         return this.albumId == null;
     }
-
-    // getters...
 }
 ```
 
-### 5.2 Repository Port — Interface ở Domain
+### 4.2 Repository Port — interface ở domain
 
 ```java
 // domain/repoport/SongRepoPort.java
@@ -204,19 +142,15 @@ public interface SongRepoPort {
 }
 ```
 
-### 5.3 JPA Model — Với annotation, có converter
+### 4.3 JPA Model — có annotation, có converter toDomain/fromDomain
 
 ```java
 // infrastructure/persistence/model/SongModel.java
 @Entity
 @Table(name = "songs")
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
+@Data @Builder @NoArgsConstructor @AllArgsConstructor
 public class SongModel {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @Column(nullable = false, length = 200)
@@ -234,7 +168,6 @@ public class SongModel {
     @Column(name = "duration_seconds")
     private Integer durationSeconds;
 
-    // Converter: Model ↔ Domain
     public Song toDomain() {
         return new Song(id, title, artistId, albumId, audioUrl, durationSeconds);
     }
@@ -252,7 +185,7 @@ public class SongModel {
 }
 ```
 
-### 5.4 Persistence Adapter — Implements RepoPort
+### 4.4 Persistence Adapter — implements RepoPort
 
 ```java
 // infrastructure/persistence/adapter/SongAdapter.java
@@ -263,8 +196,7 @@ public class SongAdapter implements SongRepoPort {
 
     @Override
     public Song save(Song song) {
-        SongModel model = SongModel.fromDomain(song);
-        return songJpaRepo.save(model).toDomain();
+        return songJpaRepo.save(SongModel.fromDomain(song)).toDomain();
     }
 
     @Override
@@ -289,36 +221,34 @@ public class SongAdapter implements SongRepoPort {
 }
 ```
 
-### 5.5 Service — Inject Port, không inject JPA trực tiếp
+### 4.5 Service — inject Port, không inject JPA trực tiếp
 
 ```java
 // application/service/impl/SongService.java
 @Service
 @RequiredArgsConstructor
 public class SongService implements SongServicePort {
-    private final SongRepoPort songRepoPort;    // ✅ inject port
+    private final SongRepoPort songRepoPort;
     private final ArtistRepoPort artistRepoPort;
+    private final SongMapper songMapper;
 
     @Override
-    public SongDto createSong(CreateSongDto request) {
-        // Validate business rule
+    public SongResponse createSong(CreateSongRequest request) {
         if (!artistRepoPort.existsById(request.getArtistId())) {
             throw new NotFoundException("Artist not found: " + request.getArtistId());
         }
         if (songRepoPort.existsByTitleAndArtistId(request.getTitle(), request.getArtistId())) {
             throw new DuplicateSongException("Song already exists for this artist");
         }
-
         Song song = new Song(null, request.getTitle(), request.getArtistId(),
                              request.getAlbumId(), request.getAudioUrl(),
                              request.getDurationSeconds());
-        Song saved = songRepoPort.save(song);
-        return SongDto.from(saved);
+        return songMapper.toResponse(songRepoPort.save(song));
     }
 }
 ```
 
-### 5.6 Controller — Trả về ApiResponse chuẩn
+### 4.6 Controller — trả về ApiResponse chuẩn, dùng @Valid
 
 ```java
 // presentation/controller/SongController.java
@@ -326,159 +256,87 @@ public class SongService implements SongServicePort {
 @RequestMapping("/api/songs")
 @RequiredArgsConstructor
 public class SongController {
-    private final SongServicePort songServicePort;  // ✅ inject port
+    private final SongServicePort songServicePort;
 
     @PostMapping
-    public ResponseEntity<ApiResponse<SongDto>> createSong(
-            @Valid @RequestBody CreateSongDto request) {
-        SongDto song = songServicePort.createSong(request);
+    public ResponseEntity<ApiResponse<SongResponse>> createSong(
+            @Valid @RequestBody CreateSongRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success(song));
+                .body(ApiResponse.success(songServicePort.createSong(request)));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<SongDto>> getSong(@PathVariable Long id) {
-        SongDto song = songServicePort.getSongById(id);
-        return ResponseEntity.ok(ApiResponse.success(song));
+    public ResponseEntity<ApiResponse<SongResponse>> getSong(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.success(songServicePort.getSongById(id)));
     }
 }
 ```
 
 ---
 
-## 6. QUY TẮC MAPPER (DOMAIN ↔ DTO)
+## 5. QUY TẮC MAPPER
 
-Dự án có 2 loại conversion cần phân biệt rõ:
+| Hướng | Cách áp dụng |
+|---|---|
+| `JPA Model ↔ Domain Entity` | Method `toDomain()` / `fromDomain()` trong JPA Model |
+| `Request DTO → Domain Entity` | Inline trong Service (thường kèm validate/logic) |
+| `Domain Entity → Response DTO` | MapStruct interface trong `application/mapper/` |
 
-| Loại | Từ → Đến | Vị trí đặt |
-|------|----------|------------|
-| **Model ↔ Domain** | `SongModel` ↔ `Song` | Method trong `JpaModel` (`toDomain` / `fromDomain`) |
-| **Domain → DTO** | `Song` → `SongDto` | Tùy theo mức độ tái sử dụng (xem quy tắc dưới) |
-
-### 6.1 Quy tắc
-
-```
-- Map dùng ở NHIỀU NƠI  →  tạo class XxxMapper trong application/mapper/
-- Map chỉ dùng 1 LẦN    →  map thủ công tại chỗ qua constructor hoặc Builder
-```
-
-> ⚠️ **KHÔNG** ép tạo Mapper riêng cho mọi DTO — chỉ tạo khi thực sự cần tái sử dụng.
-
-### 6.2 Map thủ công (chỉ dùng 1 lần) — mặc định
-
-Viết trực tiếp inline trong Service bằng constructor hoặc Builder:
-
-```java
-// Trong SongService.createSong() — map chỉ dùng ở đây → viết thủ công
-Song saved = songRepoPort.save(song);
-
-// Dùng constructor
-return new SongDto(saved.getId(), saved.getTitle(), saved.getArtistId());
-
-// Hoặc dùng Builder (nếu DTO có @Builder)
-return SongDto.builder()
-        .id(saved.getId())
-        .title(saved.getTitle())
-        .artistId(saved.getArtistId())
-        .build();
-```
-
-### 6.3 Class Mapper riêng (dùng nhiều nơi)
-
-Khi cùng một conversion được dùng ở ≥ 2 nơi khác nhau, tách ra class riêng:
-
-```
-application/
-├── dto/
-├── service/
-└── mapper/                        # Chỉ tạo khi thực sự tái sử dụng
-    ├── SongMapper.java
-    └── UserMapper.java
-```
+### MapStruct interface
 
 ```java
 // application/mapper/SongMapper.java
-// Tạo vì SongDto dùng trong cả SongService và PlaylistService
-public class SongMapper {
-
-    public static SongDto toDto(Song song) {
-        return SongDto.builder()
-                .id(song.getId())
-                .title(song.getTitle())
-                .artistId(song.getArtistId())
-                .durationSeconds(song.getDurationSeconds())
-                .build();
-    }
+@Mapper(componentModel = "spring")
+public interface SongMapper {
+    @Mapping(source = "durationSeconds", target = "duration") // nếu field name khác nhau
+    SongResponse toResponse(Song song);
+    List<SongResponse> toResponseList(List<Song> songs);
 }
 ```
 
-```java
-// SongService.java
-return SongMapper.toDto(saved);
-
-// PlaylistService.java — reuse cùng mapper
-songs.stream().map(SongMapper::toDto).toList();
-```
+> Lombok phải khai báo **trước** MapStruct trong `annotationProcessorPaths` của `pom.xml`.
 
 ---
 
+## 6. API RESPONSE FORMAT
 
-## 7. API RESPONSE FORMAT
-
-Mọi API đều trả về format thống nhất `ApiResponse<T>`:
+Mọi API trả về `ApiResponse<T>`:
 
 ```java
 // application/dto/common/ApiResponse.java
-@Data
-@Builder
+@Data @Builder
 public class ApiResponse<T> {
     private boolean success;
     private String message;
     private T data;
 
     public static <T> ApiResponse<T> success(T data) {
-        return ApiResponse.<T>builder()
-                .success(true)
-                .message("OK")
-                .data(data)
-                .build();
+        return ApiResponse.<T>builder().success(true).message("OK").data(data).build();
     }
 
     public static <T> ApiResponse<T> error(String message) {
-        return ApiResponse.<T>builder()
-                .success(false)
-                .message(message)
-                .data(null)
-                .build();
+        return ApiResponse.<T>builder().success(false).message(message).data(null).build();
     }
 }
 ```
 
-**Response mẫu — thành công:**
+**Thành công:**
 ```json
-{
-  "success": true,
-  "message": "OK",
-  "data": { "id": 1, "title": "Nơi Này Có Anh", "artistId": 5 }
-}
+{ "success": true, "message": "OK", "data": { "id": 1, "title": "Nơi Này Có Anh" } }
 ```
 
-**Response mẫu — lỗi:**
+**Lỗi:**
 ```json
-{
-  "success": false,
-  "message": "Song not found with id: 99",
-  "data": null
-}
+{ "success": false, "message": "Song not found with id: 99", "data": null }
 ```
 
 ---
 
-## 8. XỬ LÝ EXCEPTION
+## 7. XỬ LÝ EXCEPTION
 
 - Tất cả exception xử lý **tập trung** tại `GlobalExceptionHandler.java`.
-- **KHÔNG** xử lý exception bằng try-catch trong Controller.
-- Tạo custom exception cho từng loại lỗi nghiệp vụ.
+- **KHÔNG** xử lý exception bằng `try-catch` trong Controller.
+- Tạo custom exception riêng cho từng loại lỗi nghiệp vụ.
 
 ```java
 // presentation/advice/GlobalExceptionHandler.java
@@ -487,14 +345,12 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(NotFoundException.class)
     public ResponseEntity<ApiResponse<Void>> handleNotFound(NotFoundException ex) {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                .body(ApiResponse.error(ex.getMessage()));
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error(ex.getMessage()));
     }
 
     @ExceptionHandler(DuplicateSongException.class)
     public ResponseEntity<ApiResponse<Void>> handleDuplicate(DuplicateSongException ex) {
-        return ResponseEntity.status(HttpStatus.CONFLICT)
-                .body(ApiResponse.error(ex.getMessage()));
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.error(ex.getMessage()));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -502,30 +358,28 @@ public class GlobalExceptionHandler {
         String message = ex.getBindingResult().getFieldErrors().stream()
                 .map(e -> e.getField() + ": " + e.getDefaultMessage())
                 .collect(Collectors.joining(", "));
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.error(message));
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(message));
     }
 
     @ExceptionHandler(UnauthorizedException.class)
     public ResponseEntity<ApiResponse<Void>> handleUnauthorized(UnauthorizedException ex) {
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .body(ApiResponse.error(ex.getMessage()));
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponse.error(ex.getMessage()));
     }
 }
 ```
 
 ---
 
-## 9. VALIDATION
+## 8. VALIDATION
 
-- Validate input ở **DTO layer** bằng Bean Validation (`jakarta.validation`).
-- Validate business rule ở **Service layer**.
-- **KHÔNG** validate ở Controller trực tiếp — dùng `@Valid` và để `GlobalExceptionHandler` xử lý.
+- Validate **format/type** ở Request DTO bằng Bean Validation (`jakarta.validation`).
+- Validate **business rule** ở Service layer.
+- **KHÔNG** validate thủ công trong Controller — dùng `@Valid` và để `GlobalExceptionHandler` xử lý.
 
 ```java
-// application/dto/request/CreateSongDto.java
+// application/dto/request/CreateSongRequest.java
 @Data
-public class CreateSongDto {
+public class CreateSongRequest {
     @NotBlank(message = "Title is required")
     @Size(max = 200, message = "Title must not exceed 200 characters")
     private String title;
@@ -533,10 +387,7 @@ public class CreateSongDto {
     @NotNull(message = "Artist ID is required")
     private Long artistId;
 
-    private Long albumId;  // optional — null nếu là single
-
-    @NotNull(message = "Genre ID is required")
-    private Long genreId;
+    private Long albumId; // optional
 
     @NotNull(message = "Duration is required")
     @Positive(message = "Duration must be positive")
@@ -546,283 +397,116 @@ public class CreateSongDto {
 
 ---
 
-## 10. BẢO MẬT (SECURITY)
+## 9. BẢO MẬT
 
 - Authentication bằng **JWT** — token đính kèm trong header `Authorization: Bearer <token>`.
-- Authorization bằng **Spring Security** với Role-based access control:
+- Authorization dựa trên **Role**: `USER` và `ADMIN`.
 
-| Role    | Quyền                                    |
-|---------|------------------------------------------|
-| `USER`  | Nghe nhạc, quản lý playlist, yêu thích  |
+| Role | Quyền |
+|---|---|
+| `USER` | Nghe nhạc, quản lý playlist, yêu thích |
 | `ADMIN` | CRUD bài hát, quản lý user, xem thống kê |
 
 - Endpoint công khai (không cần auth): `POST /api/auth/login`, `POST /api/auth/register`
-- Endpoint yêu cầu ADMIN: Mọi `POST`, `PUT`, `DELETE` của `/api/admin/**`
-- **Không bao giờ** log ra password hay JWT secret.
-- Message lỗi auth dùng chung `"Invalid credentials"` — **không tiết lộ** email nào tồn tại.
+- Endpoint yêu cầu ADMIN: mọi route `/api/admin/**`
+- **KHÔNG** log password, JWT secret, hay thông tin cá nhân.
+- Message lỗi auth luôn dùng `"Invalid credentials"` — **không tiết lộ** email có tồn tại hay không.
 
 ---
 
-## 11. QUẢN LÝ DATABASE SCHEMA
+## 10. QUẢN LÝ DATABASE SCHEMA
 
-Schema được quản lý **hoàn toàn qua JPA Model** — Hibernate tự đồng bộ dựa trên `ddl-auto=update`.
-
-- **Không dùng Flyway** hay công cụ migration thủ công.
-- Mọi thay đổi schema (thêm bảng, thêm cột, đổi kiểu dữ liệu) thực hiện bằng cách **chỉnh sửa JPA Model** tương ứng.
-- Cấu hình trong `application.yml`:
+- Schema quản lý **hoàn toàn qua JPA Model** — Hibernate tự sync với `ddl-auto: update`.
+- **Không dùng Flyway** hoặc migration thủ công.
+- Khi thêm cột mới: đặt `nullable = true` hoặc có `DEFAULT` để tránh lỗi với dữ liệu cũ.
 
 ```yaml
+# application.yml
 spring:
   jpa:
     hibernate:
-      ddl-auto: update      # Tự update schema khi khởi động
-    show-sql: true          # Bật khi dev để kiểm tra câu SQL sinh ra
+      ddl-auto: update
+    show-sql: true
     properties:
       hibernate:
         format_sql: true
 ```
 
-> ⚠️ Khi thêm cột mới vào Model, đảm bảo cột đó có giá trị **`nullable = true`** hoặc có `columnDefinition` với `DEFAULT` để tránh lỗi khi update bảng đã có dữ liệu.
-
 ---
 
+## 11. QUY TẮC KIỂM THỬ
 
-## 12. QUY TẮC KIỂM THỬ
+### Phạm vi
 
-> ⚠️ **Không được merge** branch feature vào `dev` nếu chưa có unit test cho Service tương ứng.
+| Layer | Loại test | Mức độ |
+|---|---|---|
+| `Service` | Unit test (mock `*RepoPort`) | **Bắt buộc** |
+| `Controller` | Integration test (`@WebMvcTest`) | **Nên có** |
+| `Adapter` / `JpaRepo` | — | Không cần |
 
-### 12.1 Phạm vi test
-
-| Layer | Loại test | Mức độ | Lý do |
-|-------|-----------|--------|-------|
-| **Service** | Unit test (mock RepoPort) | ✅ **Bắt buộc** | Chứa toàn bộ business logic |
-| **Controller** | Integration test (`@WebMvcTest`) | ⚡ **Nên có** | Kiểm tra HTTP status, request/response format |
-| **Adapter / JpaRepo** | — | ❌ **Không cần** | Không có business logic, Spring Data JPA đã đảm bảo |
-
-### 12.2 Vị trí đặt test
-
-```
-src/test/java/com/example/ondas/
-├── unit/
-│   └── service/
-│       ├── AuthServiceTest.java
-│       ├── SongServiceTest.java
-│       └── ...
-└── integration/
-    └── controller/
-        ├── AuthControllerTest.java
-        ├── SongControllerTest.java
-        └── ...
-```
-
-### 12.3 Unit Test — Service (Bắt buộc)
-
-**Yêu cầu:** Mọi public method của Service phải có test. Dùng **JUnit 5 + Mockito**, mock toàn bộ `*RepoPort`.
+### Unit Test — Service
 
 ```java
-// unit/service/SongServiceTest.java
 @ExtendWith(MockitoExtension.class)
 class SongServiceTest {
-
-    @Mock
-    private SongRepoPort songRepoPort;
-
-    @Mock
-    private ArtistRepoPort artistRepoPort;
-
-    @InjectMocks
-    private SongService songService;
+    @Mock private SongRepoPort songRepoPort;
+    @Mock private ArtistRepoPort artistRepoPort;
+    @InjectMocks private SongService songService;
 
     @Test
-    void createSong_WhenValid_ShouldReturnSongDto() {
+    void createSong_WhenValid_ShouldReturnSongResponse() {
         // arrange
-        CreateSongDto request = new CreateSongDto();
-        request.setTitle("Nơi Này Có Anh");
-        request.setArtistId(1L);
-        request.setDurationSeconds(210);
-
         when(artistRepoPort.existsById(1L)).thenReturn(true);
         when(songRepoPort.existsByTitleAndArtistId(any(), any())).thenReturn(false);
-        when(songRepoPort.save(any())).thenReturn(
-            new Song(1L, "Nơi Này Có Anh", 1L, null, "url", 210));
-
-        // act
-        SongDto result = songService.createSong(request);
-
-        // assert
+        when(songRepoPort.save(any())).thenReturn(new Song(1L, "Test", 1L, null, "url", 210));
+        // act & assert
+        SongResponse result = songService.createSong(buildRequest());
         assertNotNull(result);
-        assertEquals("Nơi Này Có Anh", result.getTitle());
         verify(songRepoPort).save(any());
     }
 
     @Test
     void createSong_WhenArtistNotFound_ShouldThrowNotFoundException() {
-        CreateSongDto request = new CreateSongDto();
-        request.setArtistId(99L);
         when(artistRepoPort.existsById(99L)).thenReturn(false);
-
-        assertThrows(NotFoundException.class, () -> songService.createSong(request));
+        assertThrows(NotFoundException.class, () -> songService.createSong(buildRequest()));
         verify(songRepoPort, never()).save(any());
-    }
-
-    @Test
-    void createSong_WhenDuplicateTitle_ShouldThrowDuplicateSongException() {
-        CreateSongDto request = new CreateSongDto();
-        request.setTitle("Nơi Này Có Anh");
-        request.setArtistId(1L);
-        when(artistRepoPort.existsById(1L)).thenReturn(true);
-        when(songRepoPort.existsByTitleAndArtistId("Nơi Này Có Anh", 1L)).thenReturn(true);
-
-        assertThrows(DuplicateSongException.class, () -> songService.createSong(request));
     }
 }
 ```
 
-### 12.4 Integration Test — Controller (Nên có)
-
-Dùng `@WebMvcTest` để test HTTP layer — không khởi động full context, mock Service:
+### Integration Test — Controller
 
 ```java
-// integration/controller/SongControllerTest.java
 @WebMvcTest(SongController.class)
 class SongControllerTest {
-
-    @Autowired
-    private MockMvc mockMvc;
-
-    @MockBean
-    private SongServicePort songServicePort;
+    @Autowired private MockMvc mockMvc;
+    @MockBean private SongServicePort songServicePort;
 
     @Test
     void createSong_ShouldReturn201_WhenRequestValid() throws Exception {
-        SongDto mockResult = new SongDto(1L, "Nơi Này Có Anh", 1L, 210);
-        when(songServicePort.createSong(any())).thenReturn(mockResult);
+        when(songServicePort.createSong(any())).thenReturn(new SongResponse(1L, "Test", 1L, 210));
 
         mockMvc.perform(post("/api/songs")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                    {
-                        "title": "Nơi Này Có Anh",
-                        "artistId": 1,
-                        "genreId": 2,
-                        "durationSeconds": 210
-                    }
+                    { "title": "Test", "artistId": 1, "genreId": 2, "durationSeconds": 210 }
                 """))
             .andExpect(status().isCreated())
-            .andExpect(jsonPath("$.success").value(true))
-            .andExpect(jsonPath("$.data.title").value("Nơi Này Có Anh"));
-    }
-
-    @Test
-    void createSong_ShouldReturn400_WhenTitleMissing() throws Exception {
-        mockMvc.perform(post("/api/songs")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("""{ "artistId": 1, "durationSeconds": 210 }"""))
-            .andExpect(status().isBadRequest())
-            .andExpect(jsonPath("$.success").value(false));
+            .andExpect(jsonPath("$.success").value(true));
     }
 }
 ```
 
-### 12.5 Chạy test
-
-```bash
-# Chạy toàn bộ test
-./mvnw test
-
-# Chạy test 1 class cụ thể
-./mvnw test -Dtest=SongServiceTest
-
-# Chạy với coverage report (JaCoCo)
-./mvnw test jacoco:report
-```
-
-**Yêu cầu coverage:** Service layer ≥ 70%.
+**Yêu cầu coverage:** Service layer ≥ 70% (đo bằng JaCoCo).
 
 ---
 
+## 12. QUY TẮC CHUNG
 
-## 13. GIT WORKFLOW
-
-### Branch strategy
-
-```
-main          ← Production release
-└── dev       ← Integration (merge cuối mỗi tuần)
-    ├── feature/trieu-<tên-task>
-    ├── feature/thanh-<tên-task>
-    └── feature/bac-<tên-task>
-```
-
-### Commit message format
-
-```
-feat(auth): thêm endpoint đăng nhập bằng JWT
-feat(song): tạo CRUD API bài hát
-fix(security): sửa lỗi token không refresh được
-test(song): thêm unit test cho SongService.createSong
-refactor(adapter): tách converter logic sang SongModel
-```
-
----
-
-## 14. QUY TẮC VIẾT CODE CHUNG
-
-1. **Không hardcode** URL, secret key, database config — đặt trong `application.yml` và dùng `@Value` hoặc `@ConfigurationProperties`.
+1. **Không hardcode** URL, secret, config — đặt trong `application.yml`, đọc bằng `@Value` hoặc `@ConfigurationProperties`.
 2. **Không inject** `*JpaRepo` vào Service — luôn inject `*RepoPort`.
 3. **Không để** business logic trong Controller hay Adapter.
 4. **Luôn dùng** `@Valid` cho request body trong Controller.
-5. **Comment** bằng tiếng Việt cho business logic phức tạp, JavaDoc bằng tiếng Anh cho public API.
+5. **Comment** business logic phức tạp bằng tiếng Việt; JavaDoc public API bằng tiếng Anh.
 6. **Không log** thông tin nhạy cảm (password, token, thông tin cá nhân).
-7. Mỗi Service implementation **chỉ xử lý nghiệp vụ của 1 entity chính** — nếu cần nhiều entity, inject thêm Port tương ứng.
-
----
-
-## 15. BUILD & RUN COMMANDS
-
-```bash
-# Chạy development
-./mvnw spring-boot:run
-
-# Build jar
-./mvnw clean package -DskipTests
-
-# Chạy toàn bộ test
-./mvnw test
-
-# Chạy với profile cụ thể
-./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
-```
-
----
-
-## 16. CHECKLIST TRƯỚC KHI COMMIT
-
-### Kiến trúc & Code
-- [ ] Code đặt đúng tầng (domain / application / infrastructure / presentation)
-- [ ] Domain Entity KHÔNG có annotation Spring/JPA/Lombok
-- [ ] Service inject `*RepoPort`, KHÔNG inject `*JpaRepo` trực tiếp
-- [ ] Controller inject `*ServicePort`, KHÔNG inject Service impl trực tiếp
-- [ ] Adapter implements RepoPort từ domain
-- [ ] JPA Model có đủ `toDomain()` và `fromDomain()`
-- [ ] Mapper: map inline (constructor/Builder) nếu chỉ dùng 1 lần, tách class `XxxMapper` nếu dùng ≥ 2 nơi
-
-### API & Validation
-- [ ] Mọi API trả về `ResponseEntity<ApiResponse<T>>`
-- [ ] Request DTO có đầy đủ Bean Validation annotation
-- [ ] Exception xử lý qua `GlobalExceptionHandler`, không try-catch ở Controller
-- [ ] API path đúng convention REST và `kebab-case`
-
-### Kiểm thử
-- [ ] Có unit test cho Service method (happy path + error + edge case)
-- [ ] Test dùng Mock cho `*RepoPort`, không gọi DB thật
-- [ ] `./mvnw test` pass 100%, không có lỗi
-
-### Database
-- [ ] Thay đổi schema thực hiện bằng cách sửa JPA Model (không dùng Flyway)
-- [ ] Cột mới thêm vào Model phải có `nullable = true` hoặc giá trị DEFAULT nếu bảng đã có data
-
-### Bảo mật
-- [ ] Endpoint mới có phân quyền đúng (USER / ADMIN / PUBLIC)
-- [ ] Không log password, token hoặc thông tin nhạy cảm
-- [ ] Commit message theo đúng format `feat/fix/test/refactor(scope): ...`
+7. Mỗi Service chỉ xử lý nghiệp vụ của **1 entity chính** — nếu cần nhiều entity, inject thêm `*RepoPort` tương ứng.

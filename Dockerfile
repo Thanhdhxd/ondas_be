@@ -30,13 +30,13 @@ FROM eclipse-temurin:17-jre-alpine
 
 WORKDIR /app
 
-# Tạo user riêng để chạy app — không chạy bằng root (best practice bảo mật)
+# Tạo user riêng để chạy app — không chạy bằng root
 RUN addgroup -S ondas && adduser -S ondas -G ondas
 
 # Copy JAR từ stage build
 COPY --from=builder /app/target/*.jar app.jar
 
-# Giới hạn RAM heap cho JVM — quan trọng khi chạy trên VPS 2GB
+# Giới hạn RAM heap cho JVM
 # (Jenkins ~512m + PostgreSQL ~200m + OS ~200m → còn ~1.1GB cho app)
 ENV JAVA_OPTS="-Xmx384m -Xms256m -XX:+UseContainerSupport"
 

@@ -34,17 +34,6 @@ public class UserModel {
     @Column(name = "avatar_url")
     private String avatarUrl;
 
-    @Column(nullable = false, length = 20)
-    @Builder.Default
-    private String provider = "local";
-
-    @Column(name = "provider_id", length = 255)
-    private String providerId;
-
-    @Column(name = "is_email_verified", nullable = false)
-    @Builder.Default
-    private boolean emailVerified = false;
-
     @Column(name = "is_active", nullable = false)
     @Builder.Default
     private boolean active = true;
@@ -84,7 +73,7 @@ public class UserModel {
 
     public User toDomain() {
         return new User(id, email, passwordHash, displayName, avatarUrl,
-                provider, providerId, emailVerified, active,
+                active,
                 banReason, bannedAt, lastLoginAt,
                 roles != null ? new HashSet<>(roles) : new HashSet<>(),
                 createdAt, updatedAt);
@@ -97,9 +86,6 @@ public class UserModel {
                 .passwordHash(user.getPasswordHash())
                 .displayName(user.getDisplayName())
                 .avatarUrl(user.getAvatarUrl())
-                .provider(user.getProvider() != null ? user.getProvider() : "local")
-                .providerId(user.getProviderId())
-                .emailVerified(user.isEmailVerified())
                 .active(user.isActive())
                 .banReason(user.getBanReason())
                 .bannedAt(user.getBannedAt())

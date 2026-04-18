@@ -9,7 +9,7 @@ spring:
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
-      ddl-auto: validate
+      ddl-auto: update
     show-sql: false
     properties:
       hibernate:
@@ -21,6 +21,12 @@ server:
 jwt:
   secret: ${JWT_SECRET}
   expiration: ${JWT_EXPIRATION}
+  refresh-expiration: ${JWT_REFRESH_EXPIRATION:604800000}
+  password-reset-expiration: ${JWT_PASSWORD_RESET_EXPIRATION:60000}
+
+app:
+  google:
+    client-id: ${GOOGLE_CLIENT_ID}
 
 logging:
   level:

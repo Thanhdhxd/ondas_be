@@ -3,6 +3,14 @@
 #
 #  Cách dùng (Jenkins deploy):
 #    docker compose -f docker-compose.prod.yml --env-file .env up -d
+#
+#  RAM budget (VPS 2GB):
+#    Jenkins   800m  (quản lý riêng tại /opt/jenkins-setup)
+#    postgres  128m  (thực tế ~25MB)
+#    ondas-be  400m  (thực tế ~282MB + JVM overhead)
+#    minio     256m  (object storage)
+#    OS/Docker ~180m
+#    Tổng      ~1.76GB / 1.92GB
 # ══════════════════════════════════════════════════════════
 
 services:
@@ -16,6 +24,8 @@ services:
       POSTGRES_DB:       ${POSTGRES_DB}
       POSTGRES_USER:     ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    mem_limit: 128m
+    memswap_limit: 128m
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
@@ -34,6 +44,8 @@ services:
     restart: unless-stopped
     ports:
       - "8080:8080"
+    mem_limit: 400m
+    memswap_limit: 400m
     environment:
       SPRING_DATASOURCE_URL:      jdbc:postgresql://postgres:5432/${POSTGRES_DB}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
@@ -41,15 +53,49 @@ services:
       SPRING_PROFILES_ACTIVE:     prod
       JWT_SECRET:                 ${JWT_SECRET}
       JWT_EXPIRATION:             ${JWT_EXPIRATION}
+      JAVA_OPTS:                  -Xmx256m -Xms128m
+      MINIO_ENDPOINT:             http://minio:9000
+      MINIO_ACCESS_KEY:           ${MINIO_ROOT_USER}
+      MINIO_SECRET_KEY:           ${MINIO_ROOT_PASSWORD}
+      MINIO_BUCKET_AUDIO:         ${MINIO_BUCKET_AUDIO}
+      MINIO_BUCKET_IMAGE:         ${MINIO_BUCKET_IMAGE}
     depends_on:
       postgres:
+        condition: service_healthy
+      minio:
         condition: service_healthy
     networks:
       - ondas-network
 
+  # ── MinIO ───────────────────────────────────────────────
+  minio:
+    image: minio/minio:latest
+    container_name: ondas-minio
+    restart: unless-stopped
+    mem_limit: 256m
+    memswap_limit: 256m
+    ports:
+      - "9000:9000"    # S3 API
+      - "9001:9001"    # MinIO Console UI
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER:     ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - minio_data:/data
+    networks:
+      - ondas-network
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
 # ── Volumes & Networks ────────────────────────────────────
 volumes:
   postgres_data:
+  minio_data:
 
 networks:
   ondas-network:
