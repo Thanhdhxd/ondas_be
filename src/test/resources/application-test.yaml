@@ -9,6 +9,11 @@ spring:
       ddl-auto: create-drop
     database-platform: org.hibernate.dialect.H2Dialect
     show-sql: false
+  mail:
+    host: localhost
+    port: 25
+    username: test
+    password: test
 
 jwt:
   secret: test-secret-key-for-unit-tests-only-32chars!!
