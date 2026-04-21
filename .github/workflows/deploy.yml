@@ -3,8 +3,6 @@ name: CI/CD Pipeline
 on:
   push:
     branches: [main]
-    paths:
-      - "ondas_be/**"
 
 env:
   DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -31,11 +29,9 @@ jobs:
           cache: maven
 
       - name: Build with Maven
-        working-directory: ondas_be
         run: ./mvnw clean package -DskipTests -B --no-transfer-progress
 
       - name: Run tests
-        working-directory: ondas_be
         run: ./mvnw test -B --no-transfer-progress
 
       - name: Upload test reports
@@ -43,14 +39,14 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: test-reports
-          path: ondas_be/target/surefire-reports/
+          path: target/surefire-reports/
           retention-days: 7
 
       - name: Upload JAR artifact
         uses: actions/upload-artifact@v4
         with:
           name: app-jar
-          path: ondas_be/target/*.jar
+          path: target/*.jar
           retention-days: 1
 
   # ══════════════════════════════════════════════════════════
@@ -73,7 +69,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: app-jar
-          path: ondas_be/target/
+          path: target/
 
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
@@ -97,7 +93,7 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
-          context: ondas_be
+          context: .
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -126,9 +122,8 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          source: ondas_be/docker-compose.prod.yml
+          source: docker-compose.prod.yml
           target: /tmp/ondas-deploy/
-          strip_components: 1
 
       - name: Deploy on VPS via SSH
         uses: appleboy/ssh-action@v1.2.0
