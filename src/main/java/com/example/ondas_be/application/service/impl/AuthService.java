@@ -37,7 +37,6 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.HexFormat;
 import java.util.Locale;
-import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -78,7 +77,7 @@ public class AuthService implements AuthServicePort {
                 null,
                 null,
                 null,
-                Set.of(Role.USER),
+                Role.USER,
                 null,
                 null
         );
@@ -193,8 +192,8 @@ public class AuthService implements AuthServicePort {
     }
 
     private AuthResponse issueTokenPair(User user) {
-        String accessToken = jwtUtil.generateAccessToken(user.getEmail(), user.getRoles());
-        String refreshToken = jwtUtil.generateRefreshToken(user.getEmail(), user.getRoles());
+        String accessToken = jwtUtil.generateAccessToken(user.getEmail(), user.getRole());
+        String refreshToken = jwtUtil.generateRefreshToken(user.getEmail(), user.getRole());
         persistRefreshToken(user.getId(), refreshToken);
         return authMapper.toAuthResponse(user, accessToken, refreshToken);
     }
@@ -226,7 +225,7 @@ public class AuthService implements AuthServicePort {
                 user.getBanReason(),
                 user.getBannedAt(),
                 LocalDateTime.now(),
-                user.getRoles(),
+                user.getRole(),
                 user.getCreatedAt(),
                 user.getUpdatedAt()
         );
@@ -244,7 +243,7 @@ public class AuthService implements AuthServicePort {
                 user.getBanReason(),
                 user.getBannedAt(),
                 user.getLastLoginAt(),
-                user.getRoles(),
+                user.getRole(),
                 user.getCreatedAt(),
                 user.getUpdatedAt()
         );

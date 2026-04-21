@@ -6,8 +6,6 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
-import java.util.HashSet;
-import java.util.Set;
 import java.util.UUID;
 
 @Entity
@@ -47,12 +45,10 @@ public class UserModel {
     @Column(name = "last_login_at")
     private LocalDateTime lastLoginAt;
 
-    @ElementCollection(fetch = FetchType.EAGER)
-    @CollectionTable(name = "user_roles", joinColumns = @JoinColumn(name = "user_id"))
-    @Column(name = "role_id")
-    @Convert(converter = RoleConverter.class)
+    @Enumerated(EnumType.STRING)
+    @Column(name = "role", nullable = false, length = 20)
     @Builder.Default
-    private Set<Role> roles = new HashSet<>();
+    private Role role = Role.USER;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -75,7 +71,7 @@ public class UserModel {
         return new User(id, email, passwordHash, displayName, avatarUrl,
                 active,
                 banReason, bannedAt, lastLoginAt,
-                roles != null ? new HashSet<>(roles) : new HashSet<>(),
+                role,
                 createdAt, updatedAt);
     }
 
@@ -90,7 +86,7 @@ public class UserModel {
                 .banReason(user.getBanReason())
                 .bannedAt(user.getBannedAt())
                 .lastLoginAt(user.getLastLoginAt())
-                .roles(user.getRoles() != null ? new HashSet<>(user.getRoles()) : new HashSet<>())
+                .role(user.getRole() != null ? user.getRole() : Role.USER)
                 .build();
     }
 }

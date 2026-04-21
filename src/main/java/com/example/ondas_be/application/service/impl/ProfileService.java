@@ -53,7 +53,7 @@ public class ProfileService implements ProfileServicePort {
                 existing.getBanReason(),
                 existing.getBannedAt(),
                 existing.getLastLoginAt(),
-                existing.getRoles(),
+                existing.getRole(),
                 existing.getCreatedAt(),
                 existing.getUpdatedAt());
 
@@ -67,7 +67,7 @@ public class ProfileService implements ProfileServicePort {
                 user.getEmail(),
                 user.getDisplayName(),
                 user.getAvatarUrl(),
-                user.getRoles(),
+                user.getRole(),
                 user.getLastLoginAt(),
                 user.getCreatedAt());
     }
@@ -95,7 +95,7 @@ public class ProfileService implements ProfileServicePort {
                 existing.getBanReason(),
                 existing.getBannedAt(),
                 existing.getLastLoginAt(),
-                existing.getRoles(),
+                existing.getRole(),
                 existing.getCreatedAt(),
                 existing.getUpdatedAt());
 

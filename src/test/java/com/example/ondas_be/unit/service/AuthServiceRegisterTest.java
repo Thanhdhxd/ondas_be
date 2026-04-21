@@ -23,7 +23,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.Date;
-import java.util.Set;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -71,20 +70,20 @@ class AuthServiceRegisterTest {
                 null,
                 null,
                 null,
-                Set.of(Role.USER),
+                Role.USER,
                 LocalDateTime.now(),
                 LocalDateTime.now());
 
         AuthResponse expected = new AuthResponse(
                 "access-token",
                 "refresh-token",
-                new UserSummaryResponse(userId, "test@example.com", "New User", Set.of(Role.USER)));
+                new UserSummaryResponse(userId, "test@example.com", "New User", Role.USER));
 
         when(userRepoPort.existsByEmail("test@example.com")).thenReturn(false);
         when(passwordEncoder.encode("12345678")).thenReturn("hashed-password");
         when(userRepoPort.save(any(User.class))).thenReturn(savedUser);
-        when(jwtUtil.generateAccessToken(eq("test@example.com"), eq(Set.of(Role.USER)))).thenReturn("access-token");
-        when(jwtUtil.generateRefreshToken(eq("test@example.com"), eq(Set.of(Role.USER)))).thenReturn("refresh-token");
+        when(jwtUtil.generateAccessToken(eq("test@example.com"), eq(Role.USER))).thenReturn("access-token");
+        when(jwtUtil.generateRefreshToken(eq("test@example.com"), eq(Role.USER))).thenReturn("refresh-token");
         when(jwtUtil.extractExpiration("refresh-token")).thenReturn(Date.from(Instant.now().plusSeconds(3600)));
         when(refreshTokenRepoPort.save(any(RefreshToken.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(authMapper.toAuthResponse(savedUser, "access-token", "refresh-token")).thenReturn(expected);
@@ -103,7 +102,7 @@ class AuthServiceRegisterTest {
         assertEquals("hashed-password", userToSave.getPasswordHash());
         assertEquals("New User", userToSave.getDisplayName());
         assertTrue(userToSave.isActive());
-        assertEquals(Set.of(Role.USER), userToSave.getRoles());
+        assertEquals(Role.USER, userToSave.getRole());
         verify(refreshTokenRepoPort).revokeAllByUserId(userId);
         verify(refreshTokenRepoPort).save(any(RefreshToken.class));
     }

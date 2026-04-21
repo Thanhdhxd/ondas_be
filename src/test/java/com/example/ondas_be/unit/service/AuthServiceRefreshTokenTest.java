@@ -27,7 +27,6 @@ import java.time.LocalDateTime;
 import java.util.Date;
 import java.util.HexFormat;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -84,7 +83,7 @@ class AuthServiceRefreshTokenTest {
                 null,
                 null,
                 LocalDateTime.now(),
-                Set.of(Role.USER),
+                Role.USER,
                 LocalDateTime.now(),
                 LocalDateTime.now()
         );
@@ -92,14 +91,14 @@ class AuthServiceRefreshTokenTest {
         AuthResponse expected = new AuthResponse(
                 "new-access-token",
                 "new-refresh-token",
-                new UserSummaryResponse(userId, "user@example.com", "Test User", Set.of(Role.USER))
+                new UserSummaryResponse(userId, "user@example.com", "Test User", Role.USER)
         );
 
         when(jwtUtil.isRefreshTokenValid(rawRefreshToken)).thenReturn(true);
         when(refreshTokenRepoPort.findByTokenHash(tokenHash)).thenReturn(Optional.of(storedRefreshToken));
         when(userRepoPort.findById(userId)).thenReturn(Optional.of(user));
-        when(jwtUtil.generateAccessToken(eq("user@example.com"), eq(Set.of(Role.USER)))).thenReturn("new-access-token");
-        when(jwtUtil.generateRefreshToken(eq("user@example.com"), eq(Set.of(Role.USER)))).thenReturn("new-refresh-token");
+        when(jwtUtil.generateAccessToken(eq("user@example.com"), eq(Role.USER))).thenReturn("new-access-token");
+        when(jwtUtil.generateRefreshToken(eq("user@example.com"), eq(Role.USER))).thenReturn("new-refresh-token");
         when(jwtUtil.extractExpiration("new-refresh-token")).thenReturn(Date.from(Instant.now().plusSeconds(3600)));
         when(refreshTokenRepoPort.save(any(RefreshToken.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(authMapper.toAuthResponse(user, "new-access-token", "new-refresh-token")).thenReturn(expected);

@@ -5,7 +5,6 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.Set;
 import java.util.UUID;
 
 @Data
@@ -16,5 +15,5 @@ public class UserSummaryResponse {
     private UUID id;
     private String email;
     private String displayName;
-    private Set<Role> roles;
+    private Role role;
 }

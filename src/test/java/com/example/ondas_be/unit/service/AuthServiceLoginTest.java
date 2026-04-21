@@ -22,7 +22,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.Date;
-import java.util.Set;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -63,14 +62,14 @@ class AuthServiceLoginTest {
         AuthResponse expected = new AuthResponse(
                 "access-token",
                 "refresh-token",
-                new UserSummaryResponse(userId, "user@example.com", "Test User", Set.of(Role.USER))
+                new UserSummaryResponse(userId, "user@example.com", "Test User", Role.USER)
         );
 
         when(userRepoPort.findByEmail("user@example.com")).thenReturn(java.util.Optional.of(existingUser));
         when(passwordEncoder.matches("12345678", "hashed-password")).thenReturn(true);
         when(userRepoPort.save(any(User.class))).thenReturn(updatedUser);
-        when(jwtUtil.generateAccessToken(eq("user@example.com"), eq(Set.of(Role.USER)))).thenReturn("access-token");
-        when(jwtUtil.generateRefreshToken(eq("user@example.com"), eq(Set.of(Role.USER)))).thenReturn("refresh-token");
+        when(jwtUtil.generateAccessToken(eq("user@example.com"), eq(Role.USER))).thenReturn("access-token");
+        when(jwtUtil.generateRefreshToken(eq("user@example.com"), eq(Role.USER))).thenReturn("refresh-token");
         when(jwtUtil.extractExpiration("refresh-token")).thenReturn(Date.from(Instant.now().plusSeconds(3600)));
         when(refreshTokenRepoPort.save(any(RefreshToken.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(authMapper.toAuthResponse(updatedUser, "access-token", "refresh-token")).thenReturn(expected);
@@ -137,7 +136,7 @@ class AuthServiceLoginTest {
                 null,
                 null,
                 lastLoginAt,
-                Set.of(Role.USER),
+                Role.USER,
                 LocalDateTime.now(),
                 LocalDateTime.now()
         );

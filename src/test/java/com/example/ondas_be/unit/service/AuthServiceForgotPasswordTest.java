@@ -27,7 +27,6 @@ import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 import java.util.HexFormat;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -82,7 +81,7 @@ class AuthServiceForgotPasswordTest {
                 null,
                 null,
                 null,
-                Set.of(Role.USER),
+                Role.USER,
                 LocalDateTime.now(),
                 LocalDateTime.now()
         );

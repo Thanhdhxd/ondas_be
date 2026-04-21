@@ -10,8 +10,7 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
-import java.util.Set;
-import java.util.stream.Collectors;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -24,9 +23,8 @@ public class UserDetailsServiceImpl implements UserDetailsService {
         User user = userRepoPort.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("Invalid credentials"));
 
-        Set<GrantedAuthority> authorities = user.getRoles().stream()
-                .map(role -> new SimpleGrantedAuthority(role.getAuthority()))
-                .collect(Collectors.toSet());
+        GrantedAuthority authority = new SimpleGrantedAuthority(
+                user.getRole() != null ? user.getRole().getAuthority() : "ROLE_USER");
 
         return new org.springframework.security.core.userdetails.User(
                 user.getEmail(),
@@ -35,7 +33,7 @@ public class UserDetailsServiceImpl implements UserDetailsService {
                 true,                  // accountNonExpired
                 true,                  // credentialsNonExpired
                 true,                  // accountNonLocked
-                authorities
+                List.of(authority)
         );
     }
 }

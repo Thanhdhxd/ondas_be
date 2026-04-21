@@ -11,8 +11,6 @@ import org.springframework.stereotype.Component;
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 @Component
 public class JwtUtil {
@@ -34,26 +32,22 @@ public class JwtUtil {
         return Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
     }
 
-    public String generateToken(String email, Set<Role> roles) {
-        return generateAccessToken(email, roles);
+    public String generateToken(String email, Role role) {
+        return generateAccessToken(email, role);
     }
 
-    public String generateAccessToken(String email, Set<Role> roles) {
-        return buildToken(email, roles, ACCESS_TOKEN_TYPE, expiration);
+    public String generateAccessToken(String email, Role role) {
+        return buildToken(email, role, ACCESS_TOKEN_TYPE, expiration);
     }
 
-    public String generateRefreshToken(String email, Set<Role> roles) {
-        return buildToken(email, roles, REFRESH_TOKEN_TYPE, refreshExpiration);
+    public String generateRefreshToken(String email, Role role) {
+        return buildToken(email, role, REFRESH_TOKEN_TYPE, refreshExpiration);
     }
 
-    private String buildToken(String email, Set<Role> roles, String tokenType, long tokenExpirationMs) {
-        String rolesStr = roles.stream()
-                .map(Role::name)
-                .collect(Collectors.joining(","));
-
+    private String buildToken(String email, Role role, String tokenType, long tokenExpirationMs) {
         return Jwts.builder()
                 .subject(email)
-                .claim("roles", rolesStr)
+                .claim("role", role != null ? role.name() : Role.USER.name())
                 .claim(TYPE_CLAIM, tokenType)
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + tokenExpirationMs))

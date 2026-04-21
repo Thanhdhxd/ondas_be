@@ -17,20 +17,20 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/users")
+@RequestMapping("/api/profile")
 @RequiredArgsConstructor
 public class ProfileController {
 
     private final ProfileServicePort profileServicePort;
 
-    @GetMapping("/me")
+    @GetMapping
     public ResponseEntity<ApiResponse<UserProfileResponse>> getMyProfile(
             @AuthenticationPrincipal UserDetails userDetails) {
         UserProfileResponse response = profileServicePort.getMyProfile(userDetails.getUsername());
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
-    @PutMapping("/me")
+    @PutMapping
     public ResponseEntity<ApiResponse<UserProfileResponse>> updateMyProfile(
             @AuthenticationPrincipal UserDetails userDetails,
             @Valid @RequestBody UpdateProfileRequest request) {
@@ -38,7 +38,7 @@ public class ProfileController {
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
-    @PutMapping("/me/password")
+    @PutMapping("/password")
     public ResponseEntity<ApiResponse<Void>> changePassword(
             @AuthenticationPrincipal UserDetails userDetails,
             @Valid @RequestBody ChangePasswordRequest request) {

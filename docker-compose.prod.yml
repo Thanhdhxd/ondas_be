@@ -4,13 +4,6 @@
 #  Cách dùng (Jenkins deploy):
 #    docker compose -f docker-compose.prod.yml --env-file .env up -d
 #
-#  RAM budget (VPS 2GB):
-#    Jenkins   800m  (quản lý riêng tại /opt/jenkins-setup)
-#    postgres  128m  (thực tế ~25MB)
-#    ondas-be  400m  (thực tế ~282MB + JVM overhead)
-#    minio     256m  (object storage)
-#    OS/Docker ~180m
-#    Tổng      ~1.76GB / 1.92GB
 # ══════════════════════════════════════════════════════════
 
 services:
@@ -24,8 +17,6 @@ services:
       POSTGRES_DB:       ${POSTGRES_DB}
       POSTGRES_USER:     ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    mem_limit: 128m
-    memswap_limit: 128m
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
@@ -44,8 +35,6 @@ services:
     restart: unless-stopped
     ports:
       - "8080:8080"
-    mem_limit: 400m
-    memswap_limit: 400m
     environment:
       SPRING_DATASOURCE_URL:      jdbc:postgresql://postgres:5432/${POSTGRES_DB}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
@@ -72,8 +61,6 @@ services:
     image: minio/minio:latest
     container_name: ondas-minio
     restart: unless-stopped
-    mem_limit: 256m
-    memswap_limit: 256m
     ports:
       - "9000:9000"    # S3 API
       - "9001:9001"    # MinIO Console UI

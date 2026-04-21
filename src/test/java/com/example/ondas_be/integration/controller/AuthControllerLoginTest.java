@@ -18,7 +18,6 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
-import java.util.Set;
 import java.util.UUID;
 
 import static org.hamcrest.Matchers.containsString;
@@ -51,7 +50,7 @@ class AuthControllerLoginTest {
                         UUID.randomUUID(),
                         "user@example.com",
                         "Test User",
-                        Set.of(Role.USER)
+                        Role.USER
                 )
         );
 

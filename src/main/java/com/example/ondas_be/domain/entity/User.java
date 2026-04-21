@@ -1,7 +1,6 @@
 package com.example.ondas_be.domain.entity;
 
 import java.time.LocalDateTime;
-import java.util.Set;
 import java.util.UUID;
 
 // Pure domain entity — KHÔNG có annotation Spring, JPA, Lombok
@@ -16,7 +15,7 @@ public class User {
     private final String banReason; // nullable
     private final LocalDateTime bannedAt; // nullable
     private final LocalDateTime lastLoginAt; // nullable
-    private final Set<Role> roles;
+    private final Role role;
     private final LocalDateTime createdAt;
     private final LocalDateTime updatedAt;
 
@@ -24,7 +23,7 @@ public class User {
             String avatarUrl,
             boolean active, String banReason,
             LocalDateTime bannedAt, LocalDateTime lastLoginAt,
-            Set<Role> roles, LocalDateTime createdAt, LocalDateTime updatedAt) {
+            Role role, LocalDateTime createdAt, LocalDateTime updatedAt) {
         this.id = id;
         this.email = email;
         this.passwordHash = passwordHash;
@@ -34,7 +33,7 @@ public class User {
         this.banReason = banReason;
         this.bannedAt = bannedAt;
         this.lastLoginAt = lastLoginAt;
-        this.roles = roles;
+        this.role = role;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
     }
@@ -75,8 +74,8 @@ public class User {
         return lastLoginAt;
     }
 
-    public Set<Role> getRoles() {
-        return roles;
+    public Role getRole() {
+        return role;
     }
 
     public LocalDateTime getCreatedAt() {
@@ -88,7 +87,7 @@ public class User {
     }
 
     public boolean hasRole(Role role) {
-        return roles != null && roles.contains(role);
+        return this.role == role;
     }
 
     public boolean isBanned() {
