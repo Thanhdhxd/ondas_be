@@ -114,7 +114,7 @@ jobs:
 
     environment:
       name: production
-      url: http://${{ secrets.VPS_HOST }}:8080
+      url: http://${{ vars.VPS_HOST }}:8080
 
     steps:
       - name: Checkout code
