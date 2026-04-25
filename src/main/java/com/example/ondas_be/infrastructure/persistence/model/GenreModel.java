@@ -58,6 +58,7 @@ public class GenreModel {
                 .slug(genre.getSlug())
                 .description(genre.getDescription())
                 .coverUrl(genre.getCoverUrl())
+                .createdAt(genre.getCreatedAt())
                 .build();
     }
 }

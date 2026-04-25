@@ -28,6 +28,6 @@ public class SongResponse {
     private LocalDate releaseDate;
     private Long playCount;
     private boolean active;
-    private List<UUID> artistIds;
-    private List<Long> genreIds;
+    private List<ArtistSummaryResponse> artists;
+    private List<GenreSummaryResponse> genres;
 }

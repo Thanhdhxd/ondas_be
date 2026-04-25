@@ -12,7 +12,9 @@ public interface AlbumRepoPort {
 
     Optional<Album> findById(UUID id);
 
-    List<Album> findAll();
+    List<Album> findAll(int page, int size);
+
+    long countAll();
 
     void deleteById(UUID id);
 

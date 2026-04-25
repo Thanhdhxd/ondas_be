@@ -12,7 +12,9 @@ public interface SongRepoPort {
 
     Optional<Song> findById(UUID id);
 
-    List<Song> findAll();
+    List<Song> findAll(int page, int size);
+
+    long countAll();
 
     List<Song> findByAlbumIdOrderByTrackNumber(UUID albumId);
 

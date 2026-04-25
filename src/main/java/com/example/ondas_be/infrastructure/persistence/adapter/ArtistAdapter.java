@@ -8,6 +8,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -29,8 +31,13 @@ public class ArtistAdapter implements ArtistRepoPort {
     }
 
     @Override
-    public List<Artist> findAll() {
-        return artistJpaRepo.findAll().stream().map(ArtistModel::toDomain).toList();
+    public List<Artist> findAll(int page, int size) {
+        return artistJpaRepo.findAll(PageRequest.of(page, size)).map(ArtistModel::toDomain).toList();
+    }
+
+    @Override
+    public long countAll() {
+        return artistJpaRepo.count();
     }
 
     @Override
@@ -70,5 +77,14 @@ public class ArtistAdapter implements ArtistRepoPort {
     @Override
     public long countByNameFullText(String query) {
         return artistJpaRepo.countByNameFullText(query);
+    }
+
+    @Override
+    public List<Artist> findByIds(Collection<UUID> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return artistJpaRepo.findAllById(ids).stream()
+                .map(ArtistModel::toDomain).toList();
     }
 }

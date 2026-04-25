@@ -29,8 +29,13 @@ public class AlbumAdapter implements AlbumRepoPort {
     }
 
     @Override
-    public List<Album> findAll() {
-        return albumJpaRepo.findAll().stream().map(AlbumModel::toDomain).toList();
+    public List<Album> findAll(int page, int size) {
+        return albumJpaRepo.findAll(PageRequest.of(page, size)).map(AlbumModel::toDomain).toList();
+    }
+
+    @Override
+    public long countAll() {
+        return albumJpaRepo.count();
     }
 
     @Override

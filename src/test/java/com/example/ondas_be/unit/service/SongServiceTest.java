@@ -81,7 +81,6 @@ class SongServiceTest {
 
         CreateSongRequest request = new CreateSongRequest();
         request.setTitle("My Song");
-        request.setDurationSeconds(200);
         request.setAlbumId(albumId);
         request.setTrackNumber(1);
         request.setReleaseDate(LocalDate.of(2026, 4, 18));
@@ -149,7 +148,6 @@ class SongServiceTest {
     void createSong_WhenAudioMissing_ShouldThrowIllegalArgumentException() {
         CreateSongRequest request = new CreateSongRequest();
         request.setTitle("My Song");
-        request.setDurationSeconds(200);
         request.setArtistIds(List.of(UUID.randomUUID()));
         request.setGenreIds(List.of(1L));
 
@@ -188,7 +186,6 @@ class SongServiceTest {
 
         UpdateSongRequest request = new UpdateSongRequest();
         request.setTitle("New Song");
-        request.setDurationSeconds(200);
         request.setArtistIds(List.of(artistId));
         request.setGenreIds(List.of(genreId));
 

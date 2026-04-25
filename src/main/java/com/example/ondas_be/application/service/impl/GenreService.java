@@ -46,8 +46,7 @@ public class GenreService implements GenreServicePort {
                 slug,
                 request.getDescription(),
                 coverUrl,
-                LocalDateTime.now()
-        );
+                LocalDateTime.now());
 
         return genreMapper.toResponse(genreRepoPort.save(genre));
     }
@@ -59,7 +58,8 @@ public class GenreService implements GenreServicePort {
                 .orElseThrow(() -> new GenreNotFoundException("Genre not found with id: " + id));
 
         String name = request.getName() != null ? request.getName().trim() : existing.getName();
-        String slugCandidate = request.getSlug() != null ? request.getSlug() : (request.getName() != null ? name : existing.getSlug());
+        String slugCandidate = request.getSlug() != null ? request.getSlug()
+                : (request.getName() != null ? name : existing.getSlug());
         String slug = existing.getSlug();
         if (slugCandidate != null && !slugCandidate.equals(existing.getSlug())) {
             slug = resolveUniqueSlug(SlugUtil.toSlug(slugCandidate), existing.getSlug());
@@ -78,9 +78,8 @@ public class GenreService implements GenreServicePort {
                 name,
                 slug,
                 request.getDescription() != null ? request.getDescription() : existing.getDescription(),
-            coverUrl,
-                existing.getCreatedAt()
-        );
+                coverUrl,
+                existing.getCreatedAt());
 
         return genreMapper.toResponse(genreRepoPort.save(updated));
     }
@@ -138,7 +137,8 @@ public class GenreService implements GenreServicePort {
     private String uploadCover(MultipartFile file) {
         String objectName = "genres/cover/" + UUID.randomUUID() + resolveExtension(file.getOriginalFilename());
         try {
-            return storagePort.upload(imageBucket, objectName, file.getInputStream(), file.getSize(), file.getContentType());
+            return storagePort.upload(imageBucket, objectName, file.getInputStream(), file.getSize(),
+                    file.getContentType());
         } catch (IOException ex) {
             throw new StorageOperationException("Cannot read upload stream", ex);
         }

@@ -1,6 +1,7 @@
 package com.example.ondas_be.application.service.impl;
 
 import com.example.ondas_be.application.dto.request.CreateArtistRequest;
+import com.example.ondas_be.application.dto.request.ArtistFilterRequest;
 import com.example.ondas_be.application.dto.request.UpdateArtistRequest;
 import com.example.ondas_be.application.dto.response.ArtistResponse;
 import com.example.ondas_be.application.dto.common.PageResultDto;
@@ -101,26 +102,27 @@ public class ArtistService implements ArtistServicePort {
 
     @Override
     @Transactional(readOnly = true)
-    public List<ArtistResponse> getAllArtists() {
-        return artistMapper.toResponseList(artistRepoPort.findAll());
-    }
+    public PageResultDto<ArtistResponse> getArtists(ArtistFilterRequest filter) {
+        int page = filter.getPage();
+        int size = filter.getSize();
+        String normalizedMode = filter.getMode() == null ? "contains" : filter.getMode().trim().toLowerCase();
 
-    @Override
-    @Transactional(readOnly = true)
-    public PageResultDto<ArtistResponse> searchArtistsByName(String query, String mode, int page, int size) {
-        if (query == null || query.isBlank()) {
-            throw new IllegalArgumentException("Query is required");
-        }
-        String normalizedMode = mode == null ? "contains" : mode.trim().toLowerCase();
         List<Artist> artists;
         long total;
-        if ("fulltext".equals(normalizedMode)) {
-            artists = artistRepoPort.findByNameFullText(query, page, size);
-            total = artistRepoPort.countByNameFullText(query);
+
+        if (filter.getQuery() != null && !filter.getQuery().isBlank()) {
+            if ("fulltext".equals(normalizedMode)) {
+                artists = artistRepoPort.findByNameFullText(filter.getQuery(), page, size);
+                total = artistRepoPort.countByNameFullText(filter.getQuery());
+            } else {
+                artists = artistRepoPort.findByNameContains(filter.getQuery(), page, size);
+                total = artistRepoPort.countByNameContains(filter.getQuery());
+            }
         } else {
-            artists = artistRepoPort.findByNameContains(query, page, size);
-            total = artistRepoPort.countByNameContains(query);
+            artists = artistRepoPort.findAll(page, size);
+            total = artistRepoPort.countAll();
         }
+
         List<ArtistResponse> items = artistMapper.toResponseList(artists);
         return buildPageResult(items, page, size, total);
     }

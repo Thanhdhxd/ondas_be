@@ -10,7 +10,6 @@ import java.util.UUID;
 public class UpdateSongRequest {
 
     private String title;
-    private Integer durationSeconds;
     private UUID albumId;
     private Integer trackNumber;
     private LocalDate releaseDate;

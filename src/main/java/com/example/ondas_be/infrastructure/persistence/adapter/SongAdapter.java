@@ -29,8 +29,13 @@ public class SongAdapter implements SongRepoPort {
     }
 
     @Override
-    public List<Song> findAll() {
-        return songJpaRepo.findAll().stream().map(SongModel::toDomain).toList();
+    public List<Song> findAll(int page, int size) {
+        return songJpaRepo.findAll(PageRequest.of(page, size)).map(SongModel::toDomain).toList();
+    }
+
+    @Override
+    public long countAll() {
+        return songJpaRepo.count();
     }
 
     @Override

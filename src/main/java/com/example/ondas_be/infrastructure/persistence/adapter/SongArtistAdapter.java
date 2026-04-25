@@ -7,9 +7,12 @@ import com.example.ondas_be.infrastructure.persistence.model.SongArtistModel;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
@@ -39,5 +42,17 @@ public class SongArtistAdapter implements SongArtistRepoPort {
             return Collections.emptyList();
         }
         return models.stream().map(model -> model.getId().getArtistId()).toList();
+    }
+
+    @Override
+    public Map<UUID, List<UUID>> findArtistIdsBySongIds(Collection<UUID> songIds) {
+        if (songIds == null || songIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        return songArtistJpaRepo.findByIdSongIdIn(songIds).stream()
+                .collect(Collectors.groupingBy(
+                        model -> model.getId().getSongId(),
+                        Collectors.mapping(model -> model.getId().getArtistId(), Collectors.toList())
+                ));
     }
 }

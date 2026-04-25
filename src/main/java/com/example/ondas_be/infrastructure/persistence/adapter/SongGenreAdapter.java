@@ -7,9 +7,12 @@ import com.example.ondas_be.infrastructure.persistence.model.SongGenreModel;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
@@ -38,5 +41,17 @@ public class SongGenreAdapter implements SongGenreRepoPort {
             return Collections.emptyList();
         }
         return models.stream().map(model -> model.getId().getGenreId()).toList();
+    }
+
+    @Override
+    public Map<UUID, List<Long>> findGenreIdsBySongIds(Collection<UUID> songIds) {
+        if (songIds == null || songIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        return songGenreJpaRepo.findByIdSongIdIn(songIds).stream()
+                .collect(Collectors.groupingBy(
+                        model -> model.getId().getSongId(),
+                        Collectors.mapping(model -> model.getId().getGenreId(), Collectors.toList())
+                ));
     }
 }

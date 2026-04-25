@@ -8,6 +8,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -69,5 +71,14 @@ public class GenreAdapter implements GenreRepoPort {
     @Override
     public long countByNameFullText(String query) {
         return genreJpaRepo.countByNameFullText(query);
+    }
+
+    @Override
+    public List<Genre> findByIds(Collection<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return genreJpaRepo.findAllById(ids).stream()
+                .map(GenreModel::toDomain).toList();
     }
 }

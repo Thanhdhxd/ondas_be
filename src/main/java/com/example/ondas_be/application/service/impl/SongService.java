@@ -1,7 +1,10 @@
 package com.example.ondas_be.application.service.impl;
 
 import com.example.ondas_be.application.dto.request.CreateSongRequest;
+import com.example.ondas_be.application.dto.request.SongFilterRequest;
 import com.example.ondas_be.application.dto.request.UpdateSongRequest;
+import com.example.ondas_be.application.dto.response.ArtistSummaryResponse;
+import com.example.ondas_be.application.dto.response.GenreSummaryResponse;
 import com.example.ondas_be.application.dto.response.SongResponse;
 import com.example.ondas_be.application.dto.common.PageResultDto;
 import com.example.ondas_be.application.exception.AlbumNotFoundException;
@@ -9,10 +12,14 @@ import com.example.ondas_be.application.exception.ArtistNotFoundException;
 import com.example.ondas_be.application.exception.GenreNotFoundException;
 import com.example.ondas_be.application.exception.SongNotFoundException;
 import com.example.ondas_be.application.exception.StorageOperationException;
+import com.example.ondas_be.application.mapper.ArtistMapper;
+import com.example.ondas_be.application.mapper.GenreMapper;
 import com.example.ondas_be.application.mapper.SongMapper;
 import com.example.ondas_be.application.service.port.SongServicePort;
 import com.example.ondas_be.application.service.port.StoragePort;
 import com.example.ondas_be.application.util.SlugUtil;
+import com.example.ondas_be.domain.entity.Artist;
+import com.example.ondas_be.domain.entity.Genre;
 import com.example.ondas_be.domain.entity.Song;
 import com.example.ondas_be.domain.repoport.AlbumRepoPort;
 import com.example.ondas_be.domain.repoport.ArtistRepoPort;
@@ -21,17 +28,25 @@ import com.example.ondas_be.domain.repoport.SongArtistRepoPort;
 import com.example.ondas_be.domain.repoport.SongGenreRepoPort;
 import com.example.ondas_be.domain.repoport.SongRepoPort;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.jaudiotagger.audio.AudioFile;
+import org.jaudiotagger.audio.AudioFileIO;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.File;
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class SongService implements SongServicePort {
@@ -44,6 +59,8 @@ public class SongService implements SongServicePort {
     private final SongGenreRepoPort songGenreRepoPort;
     private final StoragePort storagePort;
     private final SongMapper songMapper;
+    private final ArtistMapper artistMapper;
+    private final GenreMapper genreMapper;
 
     @Value("${storage.minio.bucket-audio}")
     private String audioBucket;
@@ -71,7 +88,7 @@ public class SongService implements SongServicePort {
                 null,
                 request.getTitle().trim(),
                 slug,
-                request.getDurationSeconds(),
+                extractDurationSeconds(audioFile),
                 audioUrl,
                 resolveAudioFormat(audioFile.getOriginalFilename()),
                 audioFile.getSize(),
@@ -92,7 +109,7 @@ public class SongService implements SongServicePort {
         songArtistRepoPort.replaceSongArtists(savedSong.getId(), request.getArtistIds());
         songGenreRepoPort.replaceSongGenres(savedSong.getId(), request.getGenreIds());
 
-        return songMapper.toResponse(withRelations(savedSong, request.getArtistIds(), request.getGenreIds()));
+        return buildResponse(savedSong, request.getArtistIds(), request.getGenreIds());
     }
 
     @Override
@@ -136,7 +153,9 @@ public class SongService implements SongServicePort {
 
         UUID albumId = request.getAlbumId() != null ? request.getAlbumId() : existing.getAlbumId();
         Integer trackNumber = request.getTrackNumber() != null ? request.getTrackNumber() : existing.getTrackNumber();
-        Integer durationSeconds = request.getDurationSeconds() != null ? request.getDurationSeconds() : existing.getDurationSeconds();
+        Integer durationSeconds = (audioFile != null && !audioFile.isEmpty())
+                ? extractDurationSeconds(audioFile)
+                : existing.getDurationSeconds();
 
         Song updatedSong = new Song(
                 existing.getId(),
@@ -173,7 +192,7 @@ public class SongService implements SongServicePort {
             songGenreRepoPort.replaceSongGenres(savedSong.getId(), request.getGenreIds());
         }
 
-        return songMapper.toResponse(withRelations(savedSong, artistIds, genreIds));
+        return buildResponse(savedSong, artistIds, genreIds);
     }
 
     @Override
@@ -185,90 +204,77 @@ public class SongService implements SongServicePort {
         List<UUID> artistIds = songArtistRepoPort.findArtistIdsBySongId(id);
         List<Long> genreIds = songGenreRepoPort.findGenreIdsBySongId(id);
 
-        return songMapper.toResponse(withRelations(song, artistIds, genreIds));
+        return buildResponse(song, artistIds, genreIds);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<SongResponse> getAllSongs() {
-        return songRepoPort.findAll().stream()
-                .map(song -> songMapper.toResponse(
-                        withRelations(song,
-                                songArtistRepoPort.findArtistIdsBySongId(song.getId()),
-                                songGenreRepoPort.findGenreIdsBySongId(song.getId()))))
-                .toList();
-    }
+    public PageResultDto<SongResponse> getSongs(SongFilterRequest filter) {
+        int page = filter.getPage();
+        int size = filter.getSize();
+        String normalizedMode = filter.getMode() == null ? "contains" : filter.getMode().trim().toLowerCase();
 
-        @Override
-        @Transactional(readOnly = true)
-        public PageResultDto<SongResponse> getSongsByArtist(UUID artistId, int page, int size) {
-        if (!artistRepoPort.existsById(artistId)) {
-            throw new ArtistNotFoundException("Artist not found with id: " + artistId);
-        }
-        List<SongResponse> items = songRepoPort.findByArtistId(artistId, page, size).stream()
-            .map(song -> songMapper.toResponse(withRelations(
-                song,
-                songArtistRepoPort.findArtistIdsBySongId(song.getId()),
-                songGenreRepoPort.findGenreIdsBySongId(song.getId()))))
-            .toList();
-        long total = songRepoPort.countByArtistId(artistId);
-        return buildPageResult(items, page, size, total);
-        }
-
-        @Override
-        @Transactional(readOnly = true)
-        public PageResultDto<SongResponse> getSongsByAlbum(UUID albumId, int page, int size) {
-        if (albumId != null && !albumRepoPort.existsById(albumId)) {
-            throw new AlbumNotFoundException("Album not found with id: " + albumId);
-        }
-        List<SongResponse> items = songRepoPort.findByAlbumId(albumId, page, size).stream()
-            .map(song -> songMapper.toResponse(withRelations(
-                song,
-                songArtistRepoPort.findArtistIdsBySongId(song.getId()),
-                songGenreRepoPort.findGenreIdsBySongId(song.getId()))))
-            .toList();
-        long total = songRepoPort.countByAlbumId(albumId);
-        return buildPageResult(items, page, size, total);
-        }
-
-        @Override
-        @Transactional(readOnly = true)
-        public PageResultDto<SongResponse> getSongsByGenre(Long genreId, int page, int size) {
-        if (!genreRepoPort.existsById(genreId)) {
-            throw new GenreNotFoundException("Genre not found with id: " + genreId);
-        }
-        List<SongResponse> items = songRepoPort.findByGenreId(genreId, page, size).stream()
-            .map(song -> songMapper.toResponse(withRelations(
-                song,
-                songArtistRepoPort.findArtistIdsBySongId(song.getId()),
-                songGenreRepoPort.findGenreIdsBySongId(song.getId()))))
-            .toList();
-        long total = songRepoPort.countByGenreId(genreId);
-        return buildPageResult(items, page, size, total);
-        }
-
-    @Override
-    @Transactional(readOnly = true)
-    public PageResultDto<SongResponse> searchSongsByTitle(String query, String mode, int page, int size) {
-        if (query == null || query.isBlank()) {
-            throw new IllegalArgumentException("Query is required");
-        }
-        String normalizedMode = mode == null ? "contains" : mode.trim().toLowerCase();
         List<Song> songs;
         long total;
-        if ("fulltext".equals(normalizedMode)) {
-            songs = songRepoPort.findByTitleFullText(query, page, size);
-            total = songRepoPort.countByTitleFullText(query);
+
+        if (filter.getQuery() != null && !filter.getQuery().isBlank()) {
+            if ("fulltext".equals(normalizedMode)) {
+                songs = songRepoPort.findByTitleFullText(filter.getQuery(), page, size);
+                total = songRepoPort.countByTitleFullText(filter.getQuery());
+            } else {
+                songs = songRepoPort.findByTitleContains(filter.getQuery(), page, size);
+                total = songRepoPort.countByTitleContains(filter.getQuery());
+            }
+        } else if (filter.getArtistId() != null) {
+            if (!artistRepoPort.existsById(filter.getArtistId())) {
+                throw new ArtistNotFoundException("Artist not found with id: " + filter.getArtistId());
+            }
+            songs = songRepoPort.findByArtistId(filter.getArtistId(), page, size);
+            total = songRepoPort.countByArtistId(filter.getArtistId());
+        } else if (filter.getAlbumId() != null) {
+            if (!albumRepoPort.existsById(filter.getAlbumId())) {
+                throw new AlbumNotFoundException("Album not found with id: " + filter.getAlbumId());
+            }
+            songs = songRepoPort.findByAlbumId(filter.getAlbumId(), page, size);
+            total = songRepoPort.countByAlbumId(filter.getAlbumId());
+        } else if (filter.getGenreId() != null) {
+            if (!genreRepoPort.existsById(filter.getGenreId())) {
+                throw new GenreNotFoundException("Genre not found with id: " + filter.getGenreId());
+            }
+            songs = songRepoPort.findByGenreId(filter.getGenreId(), page, size);
+            total = songRepoPort.countByGenreId(filter.getGenreId());
         } else {
-            songs = songRepoPort.findByTitleContains(query, page, size);
-            total = songRepoPort.countByTitleContains(query);
+            songs = songRepoPort.findAll(page, size);
+            total = songRepoPort.countAll();
         }
-        List<SongResponse> items = songs.stream()
-                .map(song -> songMapper.toResponse(withRelations(
-                        song,
-                        songArtistRepoPort.findArtistIdsBySongId(song.getId()),
-                        songGenreRepoPort.findGenreIdsBySongId(song.getId()))))
-                .toList();
+
+        List<UUID> songIds = songs.stream().map(Song::getId).toList();
+        Map<UUID, List<UUID>> artistIdsBySong = songIds.isEmpty()
+                ? Collections.emptyMap()
+                : songArtistRepoPort.findArtistIdsBySongIds(songIds);
+        Map<UUID, List<Long>> genreIdsBySong = songIds.isEmpty()
+                ? Collections.emptyMap()
+                : songGenreRepoPort.findGenreIdsBySongIds(songIds);
+
+        List<UUID> allArtistIds = artistIdsBySong.values().stream()
+                .flatMap(List::stream).distinct().toList();
+        List<Long> allGenreIds = genreIdsBySong.values().stream()
+                .flatMap(List::stream).distinct().toList();
+
+        Map<UUID, ArtistSummaryResponse> artistById = artistRepoPort.findByIds(allArtistIds).stream()
+                .collect(Collectors.toMap(Artist::getId, artistMapper::toSummaryResponse));
+        Map<Long, GenreSummaryResponse> genreById = genreRepoPort.findByIds(allGenreIds).stream()
+                .collect(Collectors.toMap(Genre::getId, genreMapper::toSummaryResponse));
+
+        List<SongResponse> items = songs.stream().map(song -> {
+            SongResponse response = songMapper.toResponse(song);
+            response.setArtists(artistIdsBySong.getOrDefault(song.getId(), Collections.emptyList())
+                    .stream().map(artistById::get).filter(Objects::nonNull).toList());
+            response.setGenres(genreIdsBySong.getOrDefault(song.getId(), Collections.emptyList())
+                    .stream().map(genreById::get).filter(Objects::nonNull).toList());
+            return response;
+        }).toList();
+
         return buildPageResult(items, page, size, total);
     }
 
@@ -320,27 +326,21 @@ public class SongService implements SongServicePort {
         return slugCandidate + "-" + UUID.randomUUID().toString().substring(0, 8);
     }
 
-    private Song withRelations(Song song, List<UUID> artistIds, List<Long> genreIds) {
-        return new Song(
-                song.getId(),
-                song.getTitle(),
-                song.getSlug(),
-                song.getDurationSeconds(),
-                song.getAudioUrl(),
-                song.getAudioFormat(),
-                song.getAudioSizeBytes(),
-                song.getCoverUrl(),
-                song.getAlbumId(),
-                song.getTrackNumber(),
-                song.getReleaseDate(),
-                song.getPlayCount(),
-                song.isActive(),
-                song.getCreatedBy(),
-                song.getCreatedAt(),
-                song.getUpdatedAt(),
-                artistIds,
-                genreIds
-        );
+    private SongResponse buildResponse(Song song, List<UUID> artistIds, List<Long> genreIds) {
+        SongResponse response = songMapper.toResponse(song);
+        response.setArtists(fetchArtistSummaries(artistIds));
+        response.setGenres(fetchGenreSummaries(genreIds));
+        return response;
+    }
+
+    private List<ArtistSummaryResponse> fetchArtistSummaries(List<UUID> ids) {
+        if (ids == null || ids.isEmpty()) return Collections.emptyList();
+        return artistMapper.toSummaryResponseList(artistRepoPort.findByIds(ids));
+    }
+
+    private List<GenreSummaryResponse> fetchGenreSummaries(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) return Collections.emptyList();
+        return genreMapper.toSummaryResponseList(genreRepoPort.findByIds(ids));
     }
 
     private String buildObjectName(String prefix, String originalFilename) {
@@ -381,6 +381,24 @@ public class SongService implements SongServicePort {
             return "mp3";
         }
         return originalFilename.substring(idx + 1).toLowerCase();
+    }
+
+    private Integer extractDurationSeconds(MultipartFile audioFile) {
+        File tempFile = null;
+        try {
+            String suffix = "." + resolveAudioFormat(audioFile.getOriginalFilename());
+            tempFile = File.createTempFile("audio-upload-", suffix);
+            audioFile.transferTo(tempFile);
+            AudioFile af = AudioFileIO.read(tempFile);
+            return af.getAudioHeader().getTrackLength();
+        } catch (Exception e) {
+            log.warn("Cannot extract duration from audio file '{}': {}", audioFile.getOriginalFilename(), e.getMessage());
+            return null;
+        } finally {
+            if (tempFile != null) {
+                tempFile.delete();
+            }
+        }
     }
 
     private PageResultDto<SongResponse> buildPageResult(List<SongResponse> items, int page, int size, long total) {

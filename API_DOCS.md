@@ -47,7 +47,7 @@ Mọi API đều trả về cấu trúc `ApiResponse<T>`:
   "success": true,
   "message": "OK",
   "data": {
-    "content": [ ... ],
+    "items": [ ... ],
     "page": 0,
     "size": 20,
     "totalElements": 100,
@@ -336,7 +336,6 @@ Tạo bài hát mới (kèm upload file).
 | Field | Type | Bắt buộc | Mô tả |
 |---|---|---|---|
 | `title` | string | ✅ | Tên bài hát |
-| `durationSeconds` | integer | ✅ | Thời lượng (giây), > 0 |
 | `albumId` | UUID | ❌ | ID album (nếu là single thì bỏ qua) |
 | `trackNumber` | integer | ❌ | Số thứ tự trong album |
 | `releaseDate` | date (`yyyy-MM-dd`) | ❌ | Ngày phát hành |
@@ -362,8 +361,12 @@ Tạo bài hát mới (kèm upload file).
     "releaseDate": "2026-01-01",
     "playCount": 0,
     "active": true,
-    "artistIds": ["uuid"],
-    "genreIds": [1]
+    "artists": [
+      { "id": "uuid", "name": "Sơn Tùng M-TP", "avatarUrl": "https://..." }
+    ],
+    "genres": [
+      { "id": 1, "name": "V-Pop" }
+    ]
   }
 }
 ```
@@ -390,7 +393,7 @@ Cập nhật bài hát.
 | `audio` | File | ❌ | File audio mới |
 | `cover` | File | ❌ | Ảnh bìa mới |
 
-**`UpdateSongRequest` fields:** `title`, `durationSeconds`, `albumId`, `trackNumber`, `releaseDate`, `artistIds`, `genreIds`, `active` — tất cả đều optional.
+**`UpdateSongRequest` fields:** `title`, `albumId`, `trackNumber`, `releaseDate`, `artistIds`, `genreIds`, `active` — tất cả đều optional.
 
 **Response `200 OK`:** Trả về `SongResponse` đã cập nhật.
 
@@ -408,78 +411,29 @@ Lấy chi tiết bài hát theo ID.
 
 ### GET `/api/songs`
 
-Lấy tất cả bài hát.
-
-**Auth:** ✅ Yêu cầu (JWT)
-
-**Response `200 OK`:** Trả về `List<SongResponse>`.
-
----
-
-### GET `/api/songs/by-artist/{artistId}`
-
-Lấy bài hát theo nghệ sĩ (có phân trang).
-
-**Auth:** ✅ Yêu cầu (JWT)
-
-**Path Params:**
-| Param | Type | Mô tả |
-|---|---|---|
-| `artistId` | UUID | ID nghệ sĩ |
-
-**Query Params:**
-| Param | Type | Mặc định | Mô tả |
-|---|---|---|---|
-| `page` | integer | `0` | Trang (0-based) |
-| `size` | integer | `20` | Số phần tử mỗi trang |
-
-**Response `200 OK`:** Trả về `PageResultDto<SongResponse>`.
-
----
-
-### GET `/api/songs/by-album/{albumId}`
-
-Lấy bài hát theo album (có phân trang).
-
-**Auth:** ✅ Yêu cầu (JWT)
-
-**Path Params:**
-| Param | Type | Mô tả |
-|---|---|---|
-| `albumId` | UUID | ID album |
-
-**Query Params:** `page`, `size` (tương tự trên)
-
----
-
-### GET `/api/songs/by-genre/{genreId}`
-
-Lấy bài hát theo thể loại (có phân trang).
-
-**Auth:** ✅ Yêu cầu (JWT)
-
-**Path Params:**
-| Param | Type | Mô tả |
-|---|---|---|
-| `genreId` | Long | ID thể loại |
-
-**Query Params:** `page`, `size` (tương tự trên)
-
----
-
-### GET `/api/songs/search`
-
-Tìm kiếm bài hát theo tên.
+Lấy danh sách bài hát có phân trang, hỗ trợ lọc theo nhiều tiêu chí. Các filter loại trừ nhau theo thứ tự ưu tiên: `query` → `artistId` → `albumId` → `genreId` → tất cả.
 
 **Auth:** ✅ Yêu cầu (JWT)
 
 **Query Params:**
 | Param | Type | Bắt buộc | Mặc định | Mô tả |
 |---|---|---|---|---|
-| `query` | string | ✅ | — | Từ khóa tìm kiếm |
-| `mode` | string | ❌ | `contains` | Chế độ: `contains`, `startsWith`, `exact` |
-| `page` | integer | ❌ | `0` | |
-| `size` | integer | ❌ | `20` | |
+| `query` | string | ❌ | — | Tìm kiếm theo tên bài hát |
+| `mode` | string | ❌ | `contains` | Chế độ tìm kiếm: `contains`, `fulltext` |
+| `artistId` | UUID | ❌ | — | Lọc theo nghệ sĩ |
+| `albumId` | UUID | ❌ | — | Lọc theo album |
+| `genreId` | Long | ❌ | — | Lọc theo thể loại |
+| `page` | integer | ❌ | `0` | Trang (0-based) |
+| `size` | integer | ❌ | `20` | Số phần tử mỗi trang |
+
+**Ví dụ:**
+```
+GET /api/songs?page=0&size=20                          → tất cả (paginated)
+GET /api/songs?query=noi+nay&mode=contains&page=0&size=20 → tìm theo tên
+GET /api/songs?artistId=<uuid>&page=0&size=20          → theo nghệ sĩ
+GET /api/songs?albumId=<uuid>&page=0&size=20           → theo album
+GET /api/songs?genreId=1&page=0&size=20                → theo thể loại
+```
 
 **Response `200 OK`:** Trả về `PageResultDto<SongResponse>`.
 
@@ -578,27 +532,23 @@ Lấy chi tiết album.
 
 ### GET `/api/albums`
 
-Lấy tất cả album.
-
-**Auth:** ✅ Yêu cầu (JWT)
-
-**Response `200 OK`:** Trả về `List<AlbumResponse>`.
-
----
-
-### GET `/api/albums/search`
-
-Tìm kiếm album theo tên.
+Lấy danh sách album có phân trang, hỗ trợ tìm kiếm theo tên.
 
 **Auth:** ✅ Yêu cầu (JWT)
 
 **Query Params:**
 | Param | Type | Bắt buộc | Mặc định | Mô tả |
 |---|---|---|---|---|
-| `query` | string | ✅ | — | Từ khóa |
-| `mode` | string | ❌ | `contains` | `contains`, `startsWith`, `exact` |
-| `page` | integer | ❌ | `0` | |
-| `size` | integer | ❌ | `20` | |
+| `query` | string | ❌ | — | Tìm kiếm theo tên album |
+| `mode` | string | ❌ | `contains` | Chế độ tìm kiếm: `contains`, `fulltext` |
+| `page` | integer | ❌ | `0` | Trang (0-based) |
+| `size` | integer | ❌ | `20` | Số phần tử mỗi trang |
+
+**Ví dụ:**
+```
+GET /api/albums?page=0&size=20              → tất cả (paginated)
+GET /api/albums?query=tam+9&page=0&size=20  → tìm theo tên
+```
 
 **Response `200 OK`:** Trả về `PageResultDto<AlbumResponse>`.
 
@@ -691,27 +641,23 @@ Lấy chi tiết nghệ sĩ.
 
 ### GET `/api/artists`
 
-Lấy tất cả nghệ sĩ.
-
-**Auth:** ✅ Yêu cầu (JWT)
-
-**Response `200 OK`:** Trả về `List<ArtistResponse>`.
-
----
-
-### GET `/api/artists/search`
-
-Tìm kiếm nghệ sĩ theo tên.
+Lấy danh sách nghệ sĩ có phân trang, hỗ trợ tìm kiếm theo tên.
 
 **Auth:** ✅ Yêu cầu (JWT)
 
 **Query Params:**
 | Param | Type | Bắt buộc | Mặc định | Mô tả |
 |---|---|---|---|---|
-| `query` | string | ✅ | — | Từ khóa |
-| `mode` | string | ❌ | `contains` | `contains`, `startsWith`, `exact` |
-| `page` | integer | ❌ | `0` | |
-| `size` | integer | ❌ | `20` | |
+| `query` | string | ❌ | — | Tìm kiếm theo tên nghệ sĩ |
+| `mode` | string | ❌ | `contains` | Chế độ tìm kiếm: `contains`, `fulltext` |
+| `page` | integer | ❌ | `0` | Trang (0-based) |
+| `size` | integer | ❌ | `20` | Số phần tử mỗi trang |
+
+**Ví dụ:**
+```
+GET /api/artists?page=0&size=20               → tất cả (paginated)
+GET /api/artists?query=son+tung&page=0&size=20 → tìm theo tên
+```
 
 **Response `200 OK`:** Trả về `PageResultDto<ArtistResponse>`.
 
@@ -878,7 +824,7 @@ Xóa thể loại.
 ```json
 {
   "success": false,
-  "message": "title: Title is required, durationSeconds: Duration must be positive",
+  "message": "title: Title is required, artistIds: Artist IDs are required",
   "data": null
 }
 ```

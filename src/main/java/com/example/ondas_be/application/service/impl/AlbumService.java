@@ -1,6 +1,7 @@
 package com.example.ondas_be.application.service.impl;
 
 import com.example.ondas_be.application.dto.request.CreateAlbumRequest;
+import com.example.ondas_be.application.dto.request.AlbumFilterRequest;
 import com.example.ondas_be.application.dto.request.UpdateAlbumRequest;
 import com.example.ondas_be.application.dto.response.AlbumResponse;
 import com.example.ondas_be.application.dto.response.SongSummaryResponse;
@@ -142,31 +143,27 @@ public class AlbumService implements AlbumServicePort {
 
     @Override
     @Transactional(readOnly = true)
-    public List<AlbumResponse> getAllAlbums() {
-        return albumRepoPort.findAll().stream().map(album -> {
-            AlbumResponse response = albumMapper.toResponse(album);
-            response.setArtistIds(albumArtistRepoPort.findArtistIdsByAlbumId(album.getId()));
-            response.setTracklist(List.of());
-            return response;
-        }).toList();
-    }
+    public PageResultDto<AlbumResponse> getAlbums(AlbumFilterRequest filter) {
+        int page = filter.getPage();
+        int size = filter.getSize();
+        String normalizedMode = filter.getMode() == null ? "contains" : filter.getMode().trim().toLowerCase();
 
-    @Override
-    @Transactional(readOnly = true)
-    public PageResultDto<AlbumResponse> searchAlbumsByTitle(String query, String mode, int page, int size) {
-        if (query == null || query.isBlank()) {
-            throw new IllegalArgumentException("Query is required");
-        }
-        String normalizedMode = mode == null ? "contains" : mode.trim().toLowerCase();
         List<Album> albums;
         long total;
-        if ("fulltext".equals(normalizedMode)) {
-            albums = albumRepoPort.findByTitleFullText(query, page, size);
-            total = albumRepoPort.countByTitleFullText(query);
+
+        if (filter.getQuery() != null && !filter.getQuery().isBlank()) {
+            if ("fulltext".equals(normalizedMode)) {
+                albums = albumRepoPort.findByTitleFullText(filter.getQuery(), page, size);
+                total = albumRepoPort.countByTitleFullText(filter.getQuery());
+            } else {
+                albums = albumRepoPort.findByTitleContains(filter.getQuery(), page, size);
+                total = albumRepoPort.countByTitleContains(filter.getQuery());
+            }
         } else {
-            albums = albumRepoPort.findByTitleContains(query, page, size);
-            total = albumRepoPort.countByTitleContains(query);
+            albums = albumRepoPort.findAll(page, size);
+            total = albumRepoPort.countAll();
         }
+
         List<AlbumResponse> items = albums.stream().map(album -> {
             AlbumResponse response = albumMapper.toResponse(album);
             response.setArtistIds(albumArtistRepoPort.findArtistIdsByAlbumId(album.getId()));
