@@ -15,4 +15,5 @@ public class UpdateAlbumRequest {
     private String albumType;
     private String description;
     private List<UUID> artistIds;
+    private List<UUID> songIds;
 }

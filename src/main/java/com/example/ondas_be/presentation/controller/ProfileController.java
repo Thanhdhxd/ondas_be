@@ -10,11 +10,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/profile")
@@ -35,6 +32,14 @@ public class ProfileController {
             @AuthenticationPrincipal UserDetails userDetails,
             @Valid @RequestBody UpdateProfileRequest request) {
         UserProfileResponse response = profileServicePort.updateMyProfile(userDetails.getUsername(), request);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @PostMapping("/avatar")
+    public ResponseEntity<ApiResponse<UserProfileResponse>> uploadAvatar(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestParam("avatar") MultipartFile avatarFile) {
+        UserProfileResponse response = profileServicePort.uploadAvatar(userDetails.getUsername(), avatarFile);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 

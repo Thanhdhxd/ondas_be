@@ -6,7 +6,10 @@ import com.example.ondas_be.application.dto.request.CreateSongRequest;
 import com.example.ondas_be.application.dto.request.UpdateSongRequest;
 import com.example.ondas_be.application.dto.response.SongResponse;
 import com.example.ondas_be.application.service.port.SongServicePort;
-import jakarta.validation.Valid;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.Validator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -24,7 +27,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/songs")
@@ -32,13 +37,16 @@ import java.util.UUID;
 public class SongController {
 
     private final SongServicePort songServicePort;
+    private final ObjectMapper objectMapper;
+    private final Validator validator;
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasAnyRole('ADMIN','CONTENT_MANAGER')")
     public ResponseEntity<ApiResponse<SongResponse>> createSong(
-            @Valid @RequestPart("data") CreateSongRequest request,
+            @RequestPart("data") String dataPart,
             @RequestPart("audio") MultipartFile audioFile,
             @RequestPart(value = "cover", required = false) MultipartFile coverFile) {
+        CreateSongRequest request = parseAndValidateRequest(dataPart, CreateSongRequest.class);
         SongResponse response = songServicePort.createSong(request, audioFile, coverFile);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(response));
     }
@@ -47,11 +55,32 @@ public class SongController {
     @PreAuthorize("hasAnyRole('ADMIN','CONTENT_MANAGER')")
     public ResponseEntity<ApiResponse<SongResponse>> updateSong(
             @PathVariable UUID id,
-            @RequestPart("data") UpdateSongRequest request,
+            @RequestPart("data") String dataPart,
             @RequestPart(value = "audio", required = false) MultipartFile audioFile,
             @RequestPart(value = "cover", required = false) MultipartFile coverFile) {
+        UpdateSongRequest request = parseAndValidateRequest(dataPart, UpdateSongRequest.class);
         SongResponse response = songServicePort.updateSong(id, request, audioFile, coverFile);
         return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    private <T> T parseAndValidateRequest(String dataPart, Class<T> requestType) {
+        if (dataPart == null || dataPart.isBlank()) {
+            throw new IllegalArgumentException("data part is required");
+        }
+
+        try {
+            T request = objectMapper.readValue(dataPart, requestType);
+            Set<ConstraintViolation<T>> violations = validator.validate(request);
+            if (!violations.isEmpty()) {
+                String message = violations.stream()
+                        .map(violation -> violation.getPropertyPath() + ": " + violation.getMessage())
+                        .collect(Collectors.joining(", "));
+                throw new IllegalArgumentException(message);
+            }
+            return request;
+        } catch (JsonProcessingException ex) {
+            throw new IllegalArgumentException("Invalid JSON in data part");
+        }
     }
 
     @GetMapping("/{id}")

@@ -36,6 +36,15 @@ public class AlbumArtistAdapter implements AlbumArtistRepoPort {
         return models.stream().map(model -> model.getId().getArtistId()).toList();
     }
 
+    @Override
+    public List<UUID> findAlbumIdsByArtistId(UUID artistId) {
+        List<AlbumArtistModel> models = albumArtistJpaRepo.findByIdArtistId(artistId);
+        if (models == null || models.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return models.stream().map(model -> model.getId().getAlbumId()).toList();
+    }
+
     private List<AlbumArtistModel> buildModels(UUID albumId, List<UUID> artistIds) {
         return artistIds.stream()
                 .map(artistId -> AlbumArtistModel.builder()

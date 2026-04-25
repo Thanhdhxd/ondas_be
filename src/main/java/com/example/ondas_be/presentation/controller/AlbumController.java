@@ -77,4 +77,9 @@ public class AlbumController {
         albumServicePort.deleteAlbum(id);
         return ResponseEntity.ok(ApiResponse.success(null));
     }
+
+    @GetMapping("/by-artist/{artistId}")
+    public ResponseEntity<ApiResponse<List<AlbumResponse>>> getAlbumsByArtistId(@PathVariable UUID artistId) {
+        return ResponseEntity.ok(ApiResponse.success(albumServicePort.getAlbumsByArtistId(artistId)));
+    }
 }

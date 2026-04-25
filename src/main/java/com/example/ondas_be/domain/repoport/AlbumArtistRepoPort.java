@@ -8,4 +8,6 @@ public interface AlbumArtistRepoPort {
     void replaceAlbumArtists(UUID albumId, List<UUID> artistIds);
 
     List<UUID> findArtistIdsByAlbumId(UUID albumId);
+
+    List<UUID> findAlbumIdsByArtistId(UUID artistId);
 }

@@ -10,5 +10,7 @@ public interface ProfileServicePort {
 
     UserProfileResponse updateMyProfile(String email, UpdateProfileRequest request);
 
+    UserProfileResponse uploadAvatar(String email, org.springframework.web.multipart.MultipartFile avatarFile);
+
     void changePassword(String email, ChangePasswordRequest request);
 }

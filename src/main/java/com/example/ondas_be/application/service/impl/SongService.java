@@ -21,12 +21,17 @@ import com.example.ondas_be.domain.repoport.SongArtistRepoPort;
 import com.example.ondas_be.domain.repoport.SongGenreRepoPort;
 import com.example.ondas_be.domain.repoport.SongRepoPort;
 import lombok.RequiredArgsConstructor;
+import org.jaudiotagger.audio.AudioFile;
+import org.jaudiotagger.audio.AudioFileIO;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
@@ -66,12 +71,17 @@ public class SongService implements SongServicePort {
         String audioObjectName = buildObjectName("songs/audio/", audioFile.getOriginalFilename());
         String audioUrl = uploadFile(audioBucket, audioObjectName, audioFile);
         String coverUrl = uploadOptionalImage(coverFile, "songs/cover/");
+        Integer durationSeconds = resolveDurationSeconds(
+            request.getDurationSeconds(),
+            audioFile,
+            null
+        );
 
         Song song = new Song(
                 null,
                 request.getTitle().trim(),
                 slug,
-                request.getDurationSeconds(),
+            durationSeconds,
                 audioUrl,
                 resolveAudioFormat(audioFile.getOriginalFilename()),
                 audioFile.getSize(),
@@ -136,7 +146,11 @@ public class SongService implements SongServicePort {
 
         UUID albumId = request.getAlbumId() != null ? request.getAlbumId() : existing.getAlbumId();
         Integer trackNumber = request.getTrackNumber() != null ? request.getTrackNumber() : existing.getTrackNumber();
-        Integer durationSeconds = request.getDurationSeconds() != null ? request.getDurationSeconds() : existing.getDurationSeconds();
+        Integer durationSeconds = resolveDurationSeconds(
+            request.getDurationSeconds(),
+            audioFile,
+            existing.getDurationSeconds()
+        );
 
         Song updatedSong = new Song(
                 existing.getId(),
@@ -368,8 +382,12 @@ public class SongService implements SongServicePort {
     }
 
     private void deleteObject(String bucket, String url) {
-        String objectName = storagePort.extractObjectName(bucket, url);
-        storagePort.delete(bucket, objectName);
+        try {
+            String objectName = storagePort.extractObjectName(bucket, url);
+            storagePort.delete(bucket, objectName);
+        } catch (RuntimeException ignored) {
+            // Best-effort cleanup: deleting old objects should not fail update flow.
+        }
     }
 
     private String resolveAudioFormat(String originalFilename) {
@@ -381,6 +399,48 @@ public class SongService implements SongServicePort {
             return "mp3";
         }
         return originalFilename.substring(idx + 1).toLowerCase();
+    }
+
+    private Integer resolveDurationSeconds(Integer requestedDuration, MultipartFile audioFile, Integer fallbackDuration) {
+        Integer extractedDuration = extractDurationSeconds(audioFile);
+        if (extractedDuration != null && extractedDuration > 0) {
+            return extractedDuration;
+        }
+        if (requestedDuration != null && requestedDuration > 0) {
+            return requestedDuration;
+        }
+        if (fallbackDuration != null && fallbackDuration > 0) {
+            return fallbackDuration;
+        }
+        throw new IllegalArgumentException("Cannot determine audio duration from uploaded file");
+    }
+
+    private Integer extractDurationSeconds(MultipartFile audioFile) {
+        if (audioFile == null || audioFile.isEmpty()) {
+            return null;
+        }
+
+        String extension = resolveAudioFormat(audioFile.getOriginalFilename());
+        Path tempFile = null;
+        try {
+            tempFile = Files.createTempFile("ondas-audio-", "." + extension);
+            try (var inputStream = audioFile.getInputStream()) {
+                Files.copy(inputStream, tempFile, StandardCopyOption.REPLACE_EXISTING);
+            }
+
+            AudioFile parsed = AudioFileIO.read(tempFile.toFile());
+            int duration = parsed.getAudioHeader().getTrackLength();
+            return duration > 0 ? duration : null;
+        } catch (Exception ignored) {
+            return null;
+        } finally {
+            if (tempFile != null) {
+                try {
+                    Files.deleteIfExists(tempFile);
+                } catch (IOException ignored) {
+                }
+            }
+        }
     }
 
     private PageResultDto<SongResponse> buildPageResult(List<SongResponse> items, int page, int size, long total) {

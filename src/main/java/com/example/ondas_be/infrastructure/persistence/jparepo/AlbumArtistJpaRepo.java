@@ -12,4 +12,6 @@ public interface AlbumArtistJpaRepo extends JpaRepository<AlbumArtistModel, Albu
     void deleteByIdAlbumId(UUID albumId);
 
     List<AlbumArtistModel> findByIdAlbumId(UUID albumId);
+
+    List<AlbumArtistModel> findByIdArtistId(UUID artistId);
 }

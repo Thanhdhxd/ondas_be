@@ -6,6 +6,7 @@ import io.minio.MakeBucketArgs;
 import io.minio.MinioClient;
 import io.minio.PutObjectArgs;
 import io.minio.RemoveObjectArgs;
+import io.minio.SetBucketPolicyArgs;
 import io.minio.StatObjectArgs;
 import io.minio.errors.ErrorResponseException;
 import io.minio.errors.InsufficientDataException;
@@ -13,6 +14,7 @@ import io.minio.errors.InternalException;
 import io.minio.errors.InvalidResponseException;
 import io.minio.errors.ServerException;
 import io.minio.errors.XmlParserException;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -30,16 +32,26 @@ public class MinioStorageAdapter implements StoragePort {
     private final MinioClient minioClient;
     private final StorageProperties properties;
 
+    @PostConstruct
+    public void initBucketPolicies() {
+        ensureBucketExists(properties.getBucketImage());
+        ensureBucketExists(properties.getBucketAudio());
+    }
+
     @Override
     public String upload(String bucket, String objectName, InputStream inputStream, long size, String contentType) {
         ensureBucketExists(bucket);
+        String resolvedContentType =
+            (contentType == null || contentType.isBlank())
+                ? "application/octet-stream"
+                : contentType;
         try {
             minioClient.putObject(
                     PutObjectArgs.builder()
                             .bucket(bucket)
                             .object(objectName)
                             .stream(inputStream, size, -1)
-                            .contentType(contentType)
+                    .contentType(resolvedContentType)
                             .build()
             );
             return getPublicUrl(bucket, objectName);
@@ -101,15 +113,48 @@ public class MinioStorageAdapter implements StoragePort {
     }
 
     private void ensureBucketExists(String bucket) {
+        if (bucket == null || bucket.isBlank()) {
+            return;
+        }
         try {
             boolean exists = minioClient.bucketExists(BucketExistsArgs.builder().bucket(bucket).build());
             if (!exists) {
                 minioClient.makeBucket(MakeBucketArgs.builder().bucket(bucket).build());
             }
+            setPublicReadPolicy(bucket);
         } catch (IOException | InvalidKeyException | InvalidResponseException | InsufficientDataException
                  | NoSuchAlgorithmException | ServerException | XmlParserException | ErrorResponseException
                  | InternalException ex) {
             throw new IllegalStateException("Storage bucket check failed", ex);
+        }
+    }
+
+    private void setPublicReadPolicy(String bucket) {
+        String policy = """
+                {
+                  "Version":"2012-10-17",
+                  "Statement":[
+                    {
+                      "Effect":"Allow",
+                      "Principal":{"AWS":["*"]},
+                      "Action":["s3:GetObject"],
+                      "Resource":["arn:aws:s3:::%s/*"]
+                    }
+                  ]
+                }
+                """.formatted(bucket);
+
+        try {
+            minioClient.setBucketPolicy(
+                    SetBucketPolicyArgs.builder()
+                            .bucket(bucket)
+                            .config(policy)
+                            .build()
+            );
+        } catch (IOException | InvalidKeyException | InvalidResponseException | InsufficientDataException
+                 | NoSuchAlgorithmException | ServerException | XmlParserException | ErrorResponseException
+                 | InternalException ex) {
+            throw new IllegalStateException("Storage bucket policy update failed", ex);
         }
     }
 }

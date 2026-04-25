@@ -336,7 +336,7 @@ Tạo bài hát mới (kèm upload file).
 | Field | Type | Bắt buộc | Mô tả |
 |---|---|---|---|
 | `title` | string | ✅ | Tên bài hát |
-| `durationSeconds` | integer | ✅ | Thời lượng (giây), > 0 |
+| `durationSeconds` | integer | ❌ | Thời lượng (giây), > 0. Nếu bỏ trống backend sẽ tự đọc từ file audio upload |
 | `albumId` | UUID | ❌ | ID album (nếu là single thì bỏ qua) |
 | `trackNumber` | integer | ❌ | Số thứ tự trong album |
 | `releaseDate` | date (`yyyy-MM-dd`) | ❌ | Ngày phát hành |

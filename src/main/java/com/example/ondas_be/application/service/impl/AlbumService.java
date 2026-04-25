@@ -7,6 +7,7 @@ import com.example.ondas_be.application.dto.response.SongSummaryResponse;
 import com.example.ondas_be.application.dto.common.PageResultDto;
 import com.example.ondas_be.application.exception.AlbumNotFoundException;
 import com.example.ondas_be.application.exception.ArtistNotFoundException;
+import com.example.ondas_be.application.exception.SongNotFoundException;
 import com.example.ondas_be.application.exception.StorageOperationException;
 import com.example.ondas_be.application.mapper.AlbumMapper;
 import com.example.ondas_be.application.mapper.SongMapper;
@@ -27,7 +28,10 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -69,10 +73,12 @@ public class AlbumService implements AlbumServicePort {
 
         Album saved = albumRepoPort.save(album);
         albumArtistRepoPort.replaceAlbumArtists(saved.getId(), request.getArtistIds());
+        replaceSongsForAlbum(saved.getId(), request.getSongIds());
+        saved = refreshAlbumTrackCount(saved.getId());
 
         AlbumResponse response = albumMapper.toResponse(saved);
         response.setArtistIds(request.getArtistIds());
-        response.setTracklist(List.of());
+        response.setTracklist(buildTracklist(saved.getId()));
         return response;
     }
 
@@ -120,6 +126,11 @@ public class AlbumService implements AlbumServicePort {
         if (request.getArtistIds() != null) {
             albumArtistRepoPort.replaceAlbumArtists(saved.getId(), request.getArtistIds());
         }
+
+        if (request.getSongIds() != null) {
+            replaceSongsForAlbum(saved.getId(), request.getSongIds());
+        }
+        saved = refreshAlbumTrackCount(saved.getId());
 
         AlbumResponse response = albumMapper.toResponse(saved);
         response.setArtistIds(request.getArtistIds() != null ? request.getArtistIds()
@@ -177,7 +188,7 @@ public class AlbumService implements AlbumServicePort {
     }
 
     @Override
-    @Transactional
+    @Transactional(readOnly = true)
     public void deleteAlbum(UUID id) {
         Album album = albumRepoPort.findById(id)
                 .orElseThrow(() -> new AlbumNotFoundException("Album not found with id: " + id));
@@ -187,10 +198,100 @@ public class AlbumService implements AlbumServicePort {
         albumRepoPort.deleteById(id);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<AlbumResponse> getAlbumsByArtistId(UUID artistId) {
+        if (!artistRepoPort.existsById(artistId)) {
+            throw new ArtistNotFoundException("Artist not found with id: " + artistId);
+        }
+        List<UUID> albumIds = albumArtistRepoPort.findAlbumIdsByArtistId(artistId);
+        return albumIds.stream()
+                .map(albumRepoPort::findById)
+                .filter(java.util.Optional::isPresent)
+                .map(java.util.Optional::get)
+                .map(album -> {
+                    AlbumResponse response = albumMapper.toResponse(album);
+                    response.setArtistIds(albumArtistRepoPort.findArtistIdsByAlbumId(album.getId()));
+                    response.setTracklist(List.of());
+                    return response;
+                }).toList();
+    }
+
     private List<SongSummaryResponse> buildTracklist(UUID albumId) {
         List<Song> songs = songRepoPort.findByAlbumIdOrderByTrackNumber(albumId);
         return songMapper.toSummaryResponseList(songs);
     }
+
+    private void replaceSongsForAlbum(UUID albumId, List<UUID> songIds) {
+        List<Song> currentSongs = songRepoPort.findByAlbumIdOrderByTrackNumber(albumId);
+        Set<UUID> targetSongIds = songIds == null
+                ? Set.of()
+                : new LinkedHashSet<>(songIds);
+
+        for (Song currentSong : currentSongs) {
+            if (targetSongIds.contains(currentSong.getId())) {
+                continue;
+            }
+            songRepoPort.save(copySongWithAlbum(currentSong, null, null));
+        }
+
+        List<UUID> orderedSongIds = new ArrayList<>(targetSongIds);
+        for (int index = 0; index < orderedSongIds.size(); index++) {
+            UUID songId = orderedSongIds.get(index);
+            Song existingSong = songRepoPort.findById(songId)
+                    .orElseThrow(() -> new SongNotFoundException("Song not found with id: " + songId));
+
+            if (existingSong.getAlbumId() != null && !existingSong.getAlbumId().equals(albumId)) {
+                throw new IllegalArgumentException("Song already belongs to another album: " + songId);
+            }
+
+                songRepoPort.save(copySongWithAlbum(existingSong, albumId, index + 1));
+        }
+    }
+
+            private Song copySongWithAlbum(Song source, UUID albumId, Integer trackNumber) {
+            return new Song(
+                source.getId(),
+                source.getTitle(),
+                source.getSlug(),
+                source.getDurationSeconds(),
+                source.getAudioUrl(),
+                source.getAudioFormat(),
+                source.getAudioSizeBytes(),
+                source.getCoverUrl(),
+                albumId,
+                trackNumber,
+                source.getReleaseDate(),
+                source.getPlayCount(),
+                source.isActive(),
+                source.getCreatedBy(),
+                source.getCreatedAt(),
+                LocalDateTime.now(),
+                source.getArtistIds(),
+                source.getGenreIds());
+            }
+
+            private Album refreshAlbumTrackCount(UUID albumId) {
+            Album currentAlbum = albumRepoPort.findById(albumId)
+                .orElseThrow(() -> new AlbumNotFoundException("Album not found with id: " + albumId));
+            int totalTracks = songRepoPort.findByAlbumIdOrderByTrackNumber(albumId).size();
+
+            Album updatedAlbum = new Album(
+                currentAlbum.getId(),
+                currentAlbum.getTitle(),
+                currentAlbum.getSlug(),
+                currentAlbum.getCoverUrl(),
+                currentAlbum.getReleaseDate(),
+                currentAlbum.getAlbumType(),
+                currentAlbum.getDescription(),
+                totalTracks,
+                currentAlbum.getCreatedBy(),
+                currentAlbum.getCreatedAt(),
+                currentAlbum.getUpdatedAt(),
+                currentAlbum.getArtistIds());
+
+            return albumRepoPort.save(updatedAlbum);
+            }
 
     private void validateArtists(List<UUID> artistIds) {
         for (UUID artistId : artistIds) {

@@ -22,4 +22,6 @@ public interface AlbumServicePort {
     PageResultDto<AlbumResponse> searchAlbumsByTitle(String query, String mode, int page, int size);
 
     void deleteAlbum(UUID id);
+
+    List<AlbumResponse> getAlbumsByArtistId(UUID artistId);
 }

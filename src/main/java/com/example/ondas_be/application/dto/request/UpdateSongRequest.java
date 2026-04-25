@@ -1,6 +1,7 @@
 package com.example.ondas_be.application.dto.request;
 
 import lombok.Data;
+import jakarta.validation.constraints.Positive;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -10,6 +11,8 @@ import java.util.UUID;
 public class UpdateSongRequest {
 
     private String title;
+
+    @Positive(message = "Duration must be positive")
     private Integer durationSeconds;
     private UUID albumId;
     private Integer trackNumber;

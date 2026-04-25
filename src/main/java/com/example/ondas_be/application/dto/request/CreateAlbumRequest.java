@@ -24,4 +24,6 @@ public class CreateAlbumRequest {
 
     @NotEmpty(message = "Artist IDs are required")
     private List<UUID> artistIds;
+
+    private List<UUID> songIds;
 }
