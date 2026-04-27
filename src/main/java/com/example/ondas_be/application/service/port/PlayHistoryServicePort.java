@@ -3,6 +3,8 @@ package com.example.ondas_be.application.service.port;
 import com.example.ondas_be.application.dto.common.PageResultDto;
 import com.example.ondas_be.application.dto.response.PlayHistoryResponse;
 
+import java.util.UUID;
+
 public interface PlayHistoryServicePort {
 
     /**
@@ -30,4 +32,14 @@ public interface PlayHistoryServicePort {
      * @throws com.example.ondas_be.application.exception.PlayHistoryNotFoundException if the entry does not exist or does not belong to the user
      */
     void deleteHistoryEntry(String email, Long id);
+
+    /**
+     * Records a play event for the authenticated user: saves a play history entry and
+     * increments the song's play count. Should be called once when playback actually starts.
+     *
+     * @param songId song identifier
+     * @param email  authenticated user's email
+     * @param source play source (e.g. "playlist", "home") — may be null
+     */
+    void recordPlay(UUID songId, String email, String source);
 }

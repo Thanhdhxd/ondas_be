@@ -3,6 +3,7 @@ package com.example.ondas_be.unit.service;
 import com.example.ondas_be.application.dto.common.PageResultDto;
 import com.example.ondas_be.application.dto.response.PlayHistoryResponse;
 import com.example.ondas_be.application.exception.PlayHistoryNotFoundException;
+import com.example.ondas_be.application.exception.SongNotFoundException;
 import com.example.ondas_be.application.service.impl.PlayHistoryService;
 import com.example.ondas_be.domain.entity.PlayHistory;
 import com.example.ondas_be.domain.entity.Role;
@@ -118,5 +119,42 @@ class PlayHistoryServiceTest {
         assertThrows(PlayHistoryNotFoundException.class,
                 () -> playHistoryService.deleteHistoryEntry(EMAIL, 99L));
         verify(playHistoryRepoPort, never()).deleteByIdAndUserId(any(), any());
+    }
+
+    // ── recordPlay ──────────────────────────────────────────────────────────────
+
+    @Test
+    void recordPlay_WhenValid_ShouldSaveHistoryAndIncrementPlayCount() {
+        when(userRepoPort.findByEmail(EMAIL)).thenReturn(Optional.of(buildUser()));
+        when(songRepoPort.findById(SONG_ID)).thenReturn(Optional.of(buildSong()));
+
+        playHistoryService.recordPlay(SONG_ID, EMAIL, "home");
+
+        verify(playHistoryRepoPort).save(any(PlayHistory.class));
+        verify(songRepoPort).incrementPlayCount(SONG_ID);
+    }
+
+    @Test
+    void recordPlay_WhenSongNotFound_ShouldThrowSongNotFoundException() {
+        when(userRepoPort.findByEmail(EMAIL)).thenReturn(Optional.of(buildUser()));
+        when(songRepoPort.findById(SONG_ID)).thenReturn(Optional.empty());
+
+        assertThrows(SongNotFoundException.class,
+                () -> playHistoryService.recordPlay(SONG_ID, EMAIL, "home"));
+        verify(playHistoryRepoPort, never()).save(any());
+        verify(songRepoPort, never()).incrementPlayCount(any());
+    }
+
+    @Test
+    void recordPlay_WhenSongInactive_ShouldThrowSongNotFoundException() {
+        Song inactiveSong = new Song(SONG_ID, "Inactive", "inactive", 210, "http://audio.url",
+                "mp3", null, null, null, null, null,
+                0L, false, null, LocalDateTime.now(), LocalDateTime.now(), null, null);
+        when(userRepoPort.findByEmail(EMAIL)).thenReturn(Optional.of(buildUser()));
+        when(songRepoPort.findById(SONG_ID)).thenReturn(Optional.of(inactiveSong));
+
+        assertThrows(SongNotFoundException.class,
+                () -> playHistoryService.recordPlay(SONG_ID, EMAIL, "home"));
+        verify(playHistoryRepoPort, never()).save(any());
     }
 }

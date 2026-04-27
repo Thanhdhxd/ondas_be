@@ -4,6 +4,7 @@ import com.example.ondas_be.application.dto.common.PageResultDto;
 import com.example.ondas_be.application.dto.response.PlayHistoryResponse;
 import com.example.ondas_be.application.dto.response.PlayHistorySongInfo;
 import com.example.ondas_be.application.exception.PlayHistoryNotFoundException;
+import com.example.ondas_be.application.exception.SongNotFoundException;
 import com.example.ondas_be.application.exception.UserNotFoundException;
 import com.example.ondas_be.application.service.port.PlayHistoryServicePort;
 import com.example.ondas_be.domain.entity.PlayHistory;
@@ -78,6 +79,20 @@ public class PlayHistoryService implements PlayHistoryServicePort {
                         "Play history entry not found with id: " + id));
 
         playHistoryRepoPort.deleteByIdAndUserId(id, user.getId());
+    }
+
+    @Override
+    @Transactional
+    public void recordPlay(UUID songId, String email, String source) {
+        User user = resolveUser(email);
+        Song song = songRepoPort.findById(songId)
+                .orElseThrow(() -> new SongNotFoundException("Song not found with id: " + songId));
+        if (!song.isActive()) {
+            throw new SongNotFoundException("Song not found with id: " + songId);
+        }
+        PlayHistory history = new PlayHistory(null, user.getId(), songId, null, source);
+        playHistoryRepoPort.save(history);
+        songRepoPort.incrementPlayCount(songId);
     }
 
     // ---- helpers ----
