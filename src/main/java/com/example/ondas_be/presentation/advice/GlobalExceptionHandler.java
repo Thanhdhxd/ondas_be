@@ -8,6 +8,11 @@ import com.example.ondas_be.application.exception.GenreNotFoundException;
 import com.example.ondas_be.application.exception.InvalidCredentialsException;
 import com.example.ondas_be.application.exception.InvalidCurrentPasswordException;
 import com.example.ondas_be.application.exception.InvalidTokenException;
+import com.example.ondas_be.application.exception.PlaylistAccessDeniedException;
+import com.example.ondas_be.application.exception.PlaylistNotFoundException;
+import com.example.ondas_be.application.exception.PlaylistReorderInvalidException;
+import com.example.ondas_be.application.exception.PlaylistSongAlreadyExistsException;
+import com.example.ondas_be.application.exception.PlaylistSongNotFoundException;
 import com.example.ondas_be.application.exception.PlayHistoryNotFoundException;
 import com.example.ondas_be.application.exception.SongNotFoundException;
 import com.example.ondas_be.application.exception.StorageOperationException;
@@ -62,10 +67,27 @@ public class GlobalExceptionHandler {
             ArtistNotFoundException.class,
             AlbumNotFoundException.class,
             GenreNotFoundException.class,
-            PlayHistoryNotFoundException.class
+            PlayHistoryNotFoundException.class,
+            PlaylistNotFoundException.class,
+            PlaylistSongNotFoundException.class
     })
     public ResponseEntity<ApiResponse<Void>> handleResourceNotFound(RuntimeException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error(ex.getMessage()));
+    }
+
+    @ExceptionHandler(PlaylistSongAlreadyExistsException.class)
+    public ResponseEntity<ApiResponse<Void>> handlePlaylistConflict(PlaylistSongAlreadyExistsException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.error(ex.getMessage()));
+    }
+
+    @ExceptionHandler(PlaylistAccessDeniedException.class)
+    public ResponseEntity<ApiResponse<Void>> handlePlaylistAccessDenied(PlaylistAccessDeniedException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ApiResponse.error(ex.getMessage()));
+    }
+
+    @ExceptionHandler(PlaylistReorderInvalidException.class)
+    public ResponseEntity<ApiResponse<Void>> handlePlaylistReorderInvalid(PlaylistReorderInvalidException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(ex.getMessage()));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
