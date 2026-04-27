@@ -9,7 +9,9 @@ import com.example.ondas_be.application.dto.common.PageResultDto;
 import com.example.ondas_be.application.exception.AlbumNotFoundException;
 import com.example.ondas_be.application.exception.ArtistNotFoundException;
 import com.example.ondas_be.application.exception.StorageOperationException;
+import com.example.ondas_be.application.dto.response.ArtistSummaryResponse;
 import com.example.ondas_be.application.mapper.AlbumMapper;
+import com.example.ondas_be.application.mapper.ArtistMapper;
 import com.example.ondas_be.application.mapper.SongMapper;
 import com.example.ondas_be.application.service.port.AlbumServicePort;
 import com.example.ondas_be.application.service.port.StoragePort;
@@ -42,6 +44,7 @@ public class AlbumService implements AlbumServicePort {
     private final StoragePort storagePort;
     private final AlbumMapper albumMapper;
     private final SongMapper songMapper;
+    private final ArtistMapper artistMapper;
 
     @Value("${storage.minio.bucket-image}")
     private String imageBucket;
@@ -73,6 +76,7 @@ public class AlbumService implements AlbumServicePort {
 
         AlbumResponse response = albumMapper.toResponse(saved);
         response.setArtistIds(request.getArtistIds());
+        response.setArtists(buildArtists(request.getArtistIds()));
         response.setTracklist(List.of());
         return response;
     }
@@ -122,9 +126,12 @@ public class AlbumService implements AlbumServicePort {
             albumArtistRepoPort.replaceAlbumArtists(saved.getId(), request.getArtistIds());
         }
 
+        List<UUID> finalArtistIds = request.getArtistIds() != null
+                ? request.getArtistIds()
+                : albumArtistRepoPort.findArtistIdsByAlbumId(saved.getId());
         AlbumResponse response = albumMapper.toResponse(saved);
-        response.setArtistIds(request.getArtistIds() != null ? request.getArtistIds()
-                : albumArtistRepoPort.findArtistIdsByAlbumId(saved.getId()));
+        response.setArtistIds(finalArtistIds);
+        response.setArtists(buildArtists(finalArtistIds));
         response.setTracklist(buildTracklist(saved.getId()));
         return response;
     }
@@ -135,8 +142,12 @@ public class AlbumService implements AlbumServicePort {
         Album album = albumRepoPort.findById(id)
                 .orElseThrow(() -> new AlbumNotFoundException("Album not found with id: " + id));
 
+        List<UUID> artistIds = albumArtistRepoPort.findArtistIdsByAlbumId(id);
+        long songCount = songRepoPort.countByAlbumId(id);
         AlbumResponse response = albumMapper.toResponse(album);
-        response.setArtistIds(albumArtistRepoPort.findArtistIdsByAlbumId(id));
+        response.setTotalTracks((int) songCount);
+        response.setArtistIds(artistIds);
+        response.setArtists(buildArtists(artistIds));
         response.setTracklist(buildTracklist(id));
         return response;
     }
@@ -165,8 +176,12 @@ public class AlbumService implements AlbumServicePort {
         }
 
         List<AlbumResponse> items = albums.stream().map(album -> {
+            List<UUID> artistIds = albumArtistRepoPort.findArtistIdsByAlbumId(album.getId());
+            long songCount = songRepoPort.countByAlbumId(album.getId());
             AlbumResponse response = albumMapper.toResponse(album);
-            response.setArtistIds(albumArtistRepoPort.findArtistIdsByAlbumId(album.getId()));
+            response.setTotalTracks((int) songCount); // lấy từ DB thực tế
+            response.setArtistIds(artistIds);
+            response.setArtists(buildArtists(artistIds));
             response.setTracklist(List.of());
             return response;
         }).toList();
@@ -187,6 +202,29 @@ public class AlbumService implements AlbumServicePort {
     private List<SongSummaryResponse> buildTracklist(UUID albumId) {
         List<Song> songs = songRepoPort.findByAlbumIdOrderByTrackNumber(albumId);
         return songMapper.toSummaryResponseList(songs);
+    }
+
+    /**
+     * Đồng bộ lại albums.total_tracks bằng cách đếm song thực tế trong DB.
+     */
+    private void refreshTotalTracks(Album album) {
+        int count = (int) songRepoPort.countByAlbumId(album.getId());
+        Album refreshed = new Album(
+                album.getId(), album.getTitle(), album.getSlug(), album.getCoverUrl(),
+                album.getReleaseDate(), album.getAlbumType(), album.getDescription(),
+                count, album.getCreatedBy(), album.getCreatedAt(), album.getUpdatedAt(),
+                album.getArtistIds()
+        );
+        albumRepoPort.save(refreshed);
+    }
+
+    private List<ArtistSummaryResponse> buildArtists(List<UUID> artistIds) {
+        if (artistIds == null || artistIds.isEmpty()) {
+            return List.of();
+        }
+        return artistRepoPort.findByIds(artistIds).stream()
+                .map(artistMapper::toSummaryResponse)
+                .toList();
     }
 
     private void validateArtists(List<UUID> artistIds) {

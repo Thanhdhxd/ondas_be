@@ -11,6 +11,7 @@ import java.util.List;
 public interface AlbumMapper {
 
     @Mapping(target = "tracklist", ignore = true)
+    @Mapping(target = "artists", ignore = true)
     AlbumResponse toResponse(Album album);
 
     List<AlbumResponse> toResponseList(List<Album> albums);

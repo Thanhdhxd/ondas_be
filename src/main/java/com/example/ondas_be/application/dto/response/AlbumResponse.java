@@ -24,5 +24,6 @@ public class AlbumResponse {
     private String description;
     private Integer totalTracks;
     private List<UUID> artistIds;
+    private List<ArtistSummaryResponse> artists;
     private List<SongSummaryResponse> tracklist;
 }
