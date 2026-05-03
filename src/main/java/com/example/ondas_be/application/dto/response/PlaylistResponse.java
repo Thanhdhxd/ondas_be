@@ -22,6 +22,7 @@ public class PlaylistResponse {
     private String coverUrl;
     private boolean isPublic;
     private Integer totalSongs;
+    private Boolean containsSong;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private List<PlaylistSongResponse> songs;

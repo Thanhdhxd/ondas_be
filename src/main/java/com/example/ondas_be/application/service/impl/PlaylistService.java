@@ -141,8 +141,15 @@ public class PlaylistService implements PlaylistServicePort {
             total = playlistRepoPort.countPublic(query);
         }
 
+        UUID songIdFilter = filter.getSongId();
         List<PlaylistResponse> items = playlists.stream()
-                .map(playlist -> buildPlaylistResponse(playlist, false))
+                .map(playlist -> {
+                    PlaylistResponse resp = buildPlaylistResponse(playlist, false);
+                    if (songIdFilter != null) {
+                        resp.setContainsSong(playlistSongRepoPort.existsByPlaylistIdAndSongId(playlist.getId(), songIdFilter));
+                    }
+                    return resp;
+                })
                 .toList();
 
         int totalPages = (int) Math.ceil((double) total / size);
