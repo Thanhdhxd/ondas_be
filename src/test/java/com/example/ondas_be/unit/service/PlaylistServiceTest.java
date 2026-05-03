@@ -1,7 +1,9 @@
 package com.example.ondas_be.unit.service;
 
+import com.example.ondas_be.application.dto.common.PageResultDto;
 import com.example.ondas_be.application.dto.request.AddSongToPlaylistRequest;
 import com.example.ondas_be.application.dto.request.CreatePlaylistRequest;
+import com.example.ondas_be.application.dto.request.PlaylistFilterRequest;
 import com.example.ondas_be.application.dto.request.ReorderPlaylistSongsRequest;
 import com.example.ondas_be.application.dto.response.PlaylistResponse;
 import com.example.ondas_be.application.exception.PlaylistAccessDeniedException;
@@ -31,7 +33,10 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
@@ -190,6 +195,59 @@ class PlaylistServiceTest {
 
         assertThrows(PlaylistAccessDeniedException.class,
                 () -> playlistService.deletePlaylist("other@example.com", playlistId));
+    }
+
+    @Test
+    void getPlaylists_WithSongId_ShouldSetContainsSongTrue_WhenSongInPlaylist() {
+        UUID songId = UUID.randomUUID();
+
+        PlaylistFilterRequest filter = new PlaylistFilterRequest();
+        filter.setOwner(true);
+        filter.setSongId(songId);
+
+        when(userRepoPort.findByEmail("user@example.com")).thenReturn(Optional.of(user));
+        when(playlistRepoPort.findByUserId(userId, null, null, 0, 20)).thenReturn(List.of(playlist));
+        when(playlistRepoPort.countByUserId(userId, null, null)).thenReturn(1L);
+        when(playlistSongRepoPort.existsByPlaylistIdAndSongId(playlistId, songId)).thenReturn(true);
+
+        PageResultDto<PlaylistResponse> result = playlistService.getPlaylists("user@example.com", filter);
+
+        assertEquals(1, result.getItems().size());
+        assertTrue(result.getItems().get(0).getContainsSong());
+    }
+
+    @Test
+    void getPlaylists_WithSongId_ShouldSetContainsSongFalse_WhenSongNotInPlaylist() {
+        UUID songId = UUID.randomUUID();
+
+        PlaylistFilterRequest filter = new PlaylistFilterRequest();
+        filter.setOwner(true);
+        filter.setSongId(songId);
+
+        when(userRepoPort.findByEmail("user@example.com")).thenReturn(Optional.of(user));
+        when(playlistRepoPort.findByUserId(userId, null, null, 0, 20)).thenReturn(List.of(playlist));
+        when(playlistRepoPort.countByUserId(userId, null, null)).thenReturn(1L);
+        when(playlistSongRepoPort.existsByPlaylistIdAndSongId(playlistId, songId)).thenReturn(false);
+
+        PageResultDto<PlaylistResponse> result = playlistService.getPlaylists("user@example.com", filter);
+
+        assertEquals(1, result.getItems().size());
+        assertFalse(result.getItems().get(0).getContainsSong());
+    }
+
+    @Test
+    void getPlaylists_WithoutSongId_ShouldNotSetContainsSong() {
+        PlaylistFilterRequest filter = new PlaylistFilterRequest();
+        filter.setOwner(true);
+
+        when(userRepoPort.findByEmail("user@example.com")).thenReturn(Optional.of(user));
+        when(playlistRepoPort.findByUserId(userId, null, null, 0, 20)).thenReturn(List.of(playlist));
+        when(playlistRepoPort.countByUserId(userId, null, null)).thenReturn(1L);
+
+        PageResultDto<PlaylistResponse> result = playlistService.getPlaylists("user@example.com", filter);
+
+        assertEquals(1, result.getItems().size());
+        assertNull(result.getItems().get(0).getContainsSong());
     }
 
     @Test

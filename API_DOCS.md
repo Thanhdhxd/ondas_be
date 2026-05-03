@@ -1141,17 +1141,21 @@ Lấy danh sách playlist có phân trang.
 | `query` | string | ❌ | — | Tìm kiếm theo tên playlist |
 | `owner` | boolean | ❌ | `false` | `true` = chỉ lấy playlist của user hiện tại |
 | `isPublic` | boolean | ❌ | — | Lọc theo trạng thái công khai |
+| `songId` | UUID | ❌ | — | Nếu truyền, mỗi playlist trong kết quả sẽ có thêm field `containsSong` cho biết bài hát đó đã có trong playlist chưa |
 | `page` | integer | ❌ | `0` | Trang (0-based) |
 | `size` | integer | ❌ | `20` | Số phần tử mỗi trang |
 
 **Ví dụ:**
 ```
-GET /api/playlists?owner=true&page=0&size=20          → playlist của tôi
-GET /api/playlists?isPublic=true&page=0&size=20       → tất cả playlist public
-GET /api/playlists?query=nhac+hay&page=0&size=20      → tìm theo tên
+GET /api/playlists?owner=true&page=0&size=20                        → playlist của tôi
+GET /api/playlists?isPublic=true&page=0&size=20                     → tất cả playlist public
+GET /api/playlists?query=nhac+hay&page=0&size=20                    → tìm theo tên
+GET /api/playlists?owner=true&songId=<uuid>                         → playlist của tôi kèm trạng thái bài hát
 ```
 
 **Response `200 OK`:** Trả về `PageResultDto<PlaylistResponse>`.
+
+> **Lưu ý về `containsSong`:** Field này chỉ xuất hiện (non-null) khi truyền `songId`. Dùng để hiển thị trạng thái "đã thêm / chưa thêm" trong màn hình chọn playlist.
 
 ---
 

@@ -2,7 +2,6 @@ package com.example.ondas_be.application.service.impl;
 
 import com.example.ondas_be.application.dto.request.SearchFilterRequest;
 import com.example.ondas_be.application.dto.response.AlbumResponse;
-import com.example.ondas_be.application.dto.response.ArtistResponse;
 import com.example.ondas_be.application.dto.response.ArtistSummaryResponse;
 import com.example.ondas_be.application.dto.response.GenreSummaryResponse;
 import com.example.ondas_be.application.dto.response.SearchResponse;

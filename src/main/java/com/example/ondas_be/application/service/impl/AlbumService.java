@@ -207,16 +207,16 @@ public class AlbumService implements AlbumServicePort {
     /**
      * Đồng bộ lại albums.total_tracks bằng cách đếm song thực tế trong DB.
      */
-    private void refreshTotalTracks(Album album) {
-        int count = (int) songRepoPort.countByAlbumId(album.getId());
-        Album refreshed = new Album(
-                album.getId(), album.getTitle(), album.getSlug(), album.getCoverUrl(),
-                album.getReleaseDate(), album.getAlbumType(), album.getDescription(),
-                count, album.getCreatedBy(), album.getCreatedAt(), album.getUpdatedAt(),
-                album.getArtistIds()
-        );
-        albumRepoPort.save(refreshed);
-    }
+    // private void refreshTotalTracks(Album album) {
+    //     int count = (int) songRepoPort.countByAlbumId(album.getId());
+    //     Album refreshed = new Album(
+    //             album.getId(), album.getTitle(), album.getSlug(), album.getCoverUrl(),
+    //             album.getReleaseDate(), album.getAlbumType(), album.getDescription(),
+    //             count, album.getCreatedBy(), album.getCreatedAt(), album.getUpdatedAt(),
+    //             album.getArtistIds()
+    //     );
+    //     albumRepoPort.save(refreshed);
+    // }
 
     private List<ArtistSummaryResponse> buildArtists(List<UUID> artistIds) {
         if (artistIds == null || artistIds.isEmpty()) {
