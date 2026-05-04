@@ -4,6 +4,8 @@ import com.example.ondas_be.application.dto.common.ApiResponse;
 import com.example.ondas_be.application.exception.AlbumNotFoundException;
 import com.example.ondas_be.application.exception.ArtistNotFoundException;
 import com.example.ondas_be.application.exception.EmailAlreadyExistsException;
+import com.example.ondas_be.application.exception.FavoriteAlreadyExistsException;
+import com.example.ondas_be.application.exception.FavoriteNotFoundException;
 import com.example.ondas_be.application.exception.GenreNotFoundException;
 import com.example.ondas_be.application.exception.InvalidCredentialsException;
 import com.example.ondas_be.application.exception.InvalidCurrentPasswordException;
@@ -69,7 +71,8 @@ public class GlobalExceptionHandler {
             GenreNotFoundException.class,
             PlayHistoryNotFoundException.class,
             PlaylistNotFoundException.class,
-            PlaylistSongNotFoundException.class
+            PlaylistSongNotFoundException.class,
+            FavoriteNotFoundException.class
     })
     public ResponseEntity<ApiResponse<Void>> handleResourceNotFound(RuntimeException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error(ex.getMessage()));
@@ -77,6 +80,11 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(PlaylistSongAlreadyExistsException.class)
     public ResponseEntity<ApiResponse<Void>> handlePlaylistConflict(PlaylistSongAlreadyExistsException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.error(ex.getMessage()));
+    }
+
+    @ExceptionHandler(FavoriteAlreadyExistsException.class)
+    public ResponseEntity<ApiResponse<Void>> handleFavoriteAlreadyExists(FavoriteAlreadyExistsException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.error(ex.getMessage()));
     }
 

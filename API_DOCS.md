@@ -16,10 +16,17 @@
 - [Artists](#artists)
 - [Genres](#genres)
 - [Home](#home)
+- [Search](#search)
+  - [GET `/api/search/suggestions`](#get-apisearchsuggestions)
+  - [DELETE `/api/search/history`](#delete-apisearchhistory)
+  - [GET `/api/search`](#get-apisearch)
+- [Lyrics](#lyrics)
 - [Play History](#play-history)
   - [POST `/api/play-history`](#post-api-play-history)
   - [GET `/api/play-history`](#get-api-play-history)
 - [Playlists](#playlists)
+- [Favorites](#favorites)
+- [Admin — Quản lý User](#admin--quản-lý-user)
 - [Phân quyền](#phân-quyền)
 - [Mã lỗi thường gặp](#mã-lỗi-thường-gặp)
 
@@ -900,6 +907,169 @@ GET /api/home?trendingLimit=5&artistLimit=6&albumLimit=8 → custom limit
 
 ---
 
+## Search
+
+### GET `/api/search/suggestions`
+
+Lấy dữ liệu gợi ý cho màn hình tìm kiếm khi user chưa gõ từ khóa. Trả về lịch sử tìm kiếm cá nhân, trending toàn hệ thống, top bài hát và tất cả thể loại.
+
+**Auth:** ✅ Yêu cầu (JWT)
+
+**Response `200 OK`:**
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "recentSearches": ["sơn tùng", "bích phương", "erik"],
+    "trendingSearches": ["binz", "hoàng thuỳ linh", "tlinh"],
+    "trendingSongs": [
+      {
+        "id": "uuid",
+        "title": "Nơi Này Có Anh",
+        "coverUrl": "https://...",
+        "playCount": 99999,
+        "artists": [ { "id": "uuid", "name": "Sơn Tùng M-TP", "avatarUrl": "https://..." } ],
+        "genres": [ { "id": 1, "name": "V-Pop" } ]
+      }
+    ],
+    "genres": [
+      { "id": 1, "name": "V-Pop", "slug": "v-pop", "description": "...", "coverUrl": "https://..." }
+    ]
+  }
+}
+```
+
+> **Ghi chú:**
+> - `recentSearches`: tối đa 10 từ khóa gần nhất của user hiện tại (đã dedup).
+> - `trendingSearches`: tối đa 10 từ khóa được tìm nhiều nhất toàn hệ thống trong 7 ngày qua.
+> - `trendingSongs`: top 10 bài hát theo `play_count`.
+> - `genres`: toàn bộ thể loại — dùng để hiển thị dạng Browse by Genre.
+
+---
+
+### DELETE `/api/search/history`
+
+Xóa toàn bộ lịch sử tìm kiếm của user đang đăng nhập.
+
+**Auth:** ✅ Yêu cầu (JWT)
+
+**Response `200 OK`:**
+```json
+{ "success": true, "message": "OK", "data": null }
+```
+
+---
+
+### GET `/api/search`
+
+Tìm kiếm tổng hợp bài hát, nghệ sĩ và album theo từ khóa trong một request duy nhất. Query sẽ được **tự động lưu vào lịch sử tìm kiếm** của user.
+
+**Auth:** ✅ Yêu cầu (JWT)
+
+**Query Params:**
+| Param | Type | Bắt buộc | Mặc định | Mô tả |
+|---|---|---|---|---|
+| `query` | string | ✅ | — | Từ khóa tìm kiếm (bắt buộc, không được để trống) |
+| `page` | integer | ❌ | `0` | Trang (0-based) |
+| `size` | integer | ❌ | `10` | Số phần tử mỗi loại mỗi trang (tối đa 50) |
+
+**Ví dụ:**
+```
+GET /api/search?query=son+tung&page=0&size=10
+```
+
+**Response `200 OK`:**
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "query": "son tung",
+    "page": 0,
+    "size": 10,
+    "totalSongs": 5,
+    "totalArtists": 1,
+    "totalAlbums": 2,
+    "songs": [ { ... } ],
+    "artists": [ { ... } ],
+    "albums": [ { ... } ]
+  }
+}
+```
+
+**Response `400 Bad Request`:** Khi `query` để trống.
+
+---
+
+## Lyrics
+
+### GET `/api/songs/{songId}/lyrics`
+
+Lấy lời bài hát.
+
+**Auth:** ✅ Yêu cầu (JWT)
+
+**Path Params:**
+| Param | Type | Mô tả |
+|---|---|---|
+| `songId` | UUID | ID bài hát |
+
+**Response `200 OK`:**
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "id": "uuid",
+    "songId": "uuid",
+    "plainText": "Lời bài hát...",
+    "hasSynced": false
+  }
+}
+```
+
+---
+
+### PUT `/api/songs/{songId}/lyrics/static`
+
+Cập nhật lời bài hát dạng plain text (không có timestamp).
+
+**Auth:** ✅ `ADMIN` hoặc `CONTENT_MANAGER`
+
+**Path Params:**
+| Param | Type | Mô tả |
+|---|---|---|
+| `songId` | UUID | ID bài hát |
+
+**Request Body:**
+| Field | Type | Bắt buộc | Mô tả |
+|---|---|---|---|
+| `plainText` | string | ✅ | Nội dung lời bài hát |
+
+```json
+{
+  "plainText": "Lời bài hát đầy đủ..."
+}
+```
+
+**Response `200 OK`:** Trả về `LyricsResponse` đã cập nhật.
+
+---
+
+### DELETE `/api/songs/{songId}/lyrics`
+
+Xóa lời bài hát.
+
+**Auth:** ✅ `ADMIN` hoặc `CONTENT_MANAGER`
+
+**Response `200 OK`:**
+```json
+{ "success": true, "message": "OK", "data": null }
+```
+
+---
+
 ## Play History
 
 > **Lưu ý:** `play_count` và lịch sử nghe **không** được ghi tự động qua stream. Client phải gọi `POST /api/play-history` một lần khi người dùng thực sự bắt đầu nghe bài.
@@ -1235,11 +1405,241 @@ Sắp xếp lại thứ tự bài hát trong playlist. Danh sách `songIds` xác
 
 ---
 
+## Favorites
+
+> Cho phép user thêm/xóa bài hát yêu thích và lấy danh sách bài hát đã yêu thích.
+
+### POST `/api/favorites/{songId}`
+
+Thêm bài hát vào danh sách yêu thích.
+
+**Auth:** ✅ Yêu cầu (JWT)
+
+**Path Params:**
+| Param | Type | Mô tả |
+|---|---|---|
+| `songId` | UUID | ID bài hát muốn thêm |
+
+**Response `200 OK`:**
+```json
+{ "success": true, "message": "OK", "data": null }
+```
+
+**Response `404 Not Found`:** Bài hát không tồn tại hoặc đang bị ẩn.
+
+**Response `409 Conflict`:** Bài hát đã có trong danh sách yêu thích.
+
+---
+
+### DELETE `/api/favorites/{songId}`
+
+Xóa bài hát khỏi danh sách yêu thích.
+
+**Auth:** ✅ Yêu cầu (JWT)
+
+**Path Params:**
+| Param | Type | Mô tả |
+|---|---|---|
+| `songId` | UUID | ID bài hát muốn xóa |
+
+**Response `200 OK`:**
+```json
+{ "success": true, "message": "OK", "data": null }
+```
+
+**Response `404 Not Found`:** Bài hát không có trong danh sách yêu thích.
+
+---
+
+### GET `/api/favorites/{songId}/status`
+
+Kiểm tra một bài hát có đang trong danh sách yêu thích của user hay không.
+
+**Auth:** ✅ Yêu cầu (JWT)
+
+**Path Params:**
+| Param | Type | Mô tả |
+|---|---|---|
+| `songId` | UUID | ID bài hát cần kiểm tra |
+
+**Response `200 OK`:**
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": true
+}
+```
+
+> `data` là `true` nếu đã yêu thích, `false` nếu chưa.
+
+---
+
+### GET `/api/favorites`
+
+Lấy danh sách bài hát yêu thích của user đang đăng nhập, sắp xếp theo thời gian thêm mới nhất.
+
+**Auth:** ✅ Yêu cầu (JWT)
+
+**Query Params:**
+| Param | Type | Bắt buộc | Mặc định | Mô tả |
+|---|---|---|---|---|
+| `page` | integer | ❌ | `0` | Trang (0-based) |
+| `size` | integer | ❌ | `20` | Số phần tử mỗi trang |
+
+**Response `200 OK`:** Trả về `PageResultDto<FavoriteSongResponse>`.
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "items": [
+      {
+        "songId": "uuid",
+        "title": "Nơi Này Có Anh",
+        "slug": "noi-nay-co-anh",
+        "durationSeconds": 210,
+        "audioUrl": "https://...",
+        "audioFormat": "mp3",
+        "coverUrl": "https://...",
+        "playCount": 12345,
+        "favoritedAt": "2026-05-01T10:00:00",
+        "artists": [
+          { "id": "uuid", "name": "Sơn Tùng M-TP", "avatarUrl": "https://..." }
+        ],
+        "genres": [
+          { "id": 1, "name": "V-Pop" }
+        ]
+      }
+    ],
+    "page": 0,
+    "size": 20,
+    "totalElements": 1,
+    "totalPages": 1
+  }
+}
+```
+
+---
+
+## Admin — Quản lý User
+
+> Tất cả endpoint trong section này yêu cầu role `ADMIN`.
+
+### GET `/api/admin/users`
+
+Lấy danh sách user có phân trang, hỗ trợ lọc theo từ khóa, role và trạng thái.
+
+**Auth:** ✅ `ADMIN`
+
+**Query Params:**
+| Param | Type | Bắt buộc | Mặc định | Mô tả |
+|---|---|---|---|---|
+| `keyword` | string | ❌ | — | Tìm kiếm theo email hoặc displayName |
+| `role` | string | ❌ | — | Lọc theo role: `USER`, `CONTENT_MANAGER`, `ADMIN` |
+| `active` | boolean | ❌ | — | Lọc theo trạng thái tài khoản |
+| `page` | integer | ❌ | `0` | Trang (0-based) |
+| `size` | integer | ❌ | `20` | Số phần tử mỗi trang |
+
+**Ví dụ:**
+```
+GET /api/admin/users?keyword=nguyen&role=USER&active=true&page=0&size=20
+```
+
+**Response `200 OK`:** Trả về `PageResultDto<AdminUserResponse>`.
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "items": [
+      {
+        "id": "uuid",
+        "email": "user@example.com",
+        "displayName": "Nguyen Van A",
+        "avatarUrl": "https://...",
+        "role": "USER",
+        "active": true,
+        "banReason": null,
+        "bannedAt": null,
+        "lastLoginAt": "2026-04-27T10:00:00",
+        "createdAt": "2026-01-01T00:00:00",
+        "updatedAt": "2026-04-27T10:00:00"
+      }
+    ],
+    "page": 0,
+    "size": 20,
+    "totalElements": 1,
+    "totalPages": 1
+  }
+}
+```
+
+---
+
+### GET `/api/admin/users/{id}`
+
+Xem chi tiết một user.
+
+**Auth:** ✅ `ADMIN`
+
+**Path Params:**
+| Param | Type | Mô tả |
+|---|---|---|
+| `id` | UUID | ID user |
+
+**Response `200 OK`:** Trả về `AdminUserResponse`.
+
+---
+
+### PATCH `/api/admin/users/{id}/ban`
+
+Ban một user.
+
+**Auth:** ✅ `ADMIN`
+
+**Path Params:**
+| Param | Type | Mô tả |
+|---|---|---|
+| `id` | UUID | ID user cần ban |
+
+**Request Body:**
+| Field | Type | Bắt buộc | Mô tả |
+|---|---|---|---|
+| `banReason` | string | ✅ | Lý do ban |
+
+```json
+{
+  "banReason": "Vi phạm điều khoản sử dụng"
+}
+```
+
+**Response `200 OK`:** Trả về `AdminUserResponse` đã cập nhật (với `active: false`, `banReason` và `bannedAt`).
+
+---
+
+### PATCH `/api/admin/users/{id}/unban`
+
+Unban một user.
+
+**Auth:** ✅ `ADMIN`
+
+**Path Params:**
+| Param | Type | Mô tả |
+|---|---|---|
+| `id` | UUID | ID user cần unban |
+
+**Response `200 OK`:** Trả về `AdminUserResponse` đã cập nhật (với `active: true`, `banReason: null`, `bannedAt: null`).
+
+---
+
 ## Phân quyền
 
 | Role | Mô tả |
 |---|---|
-| `USER` | Nghe nhạc, xem profile, đổi mật khẩu |
+| `USER` | Nghe nhạc, xem profile, đổi mật khẩu, quản lý yêu thích |
 | `CONTENT_MANAGER` | CRUD bài hát, album, nghệ sĩ, thể loại |
 | `ADMIN` | Tất cả quyền của `CONTENT_MANAGER` + quản lý user |
 
@@ -1253,6 +1653,10 @@ Sắp xếp lại thứ tự bài hát trong playlist. Danh sách `songIds` xác
 
 **Endpoint yêu cầu ADMIN hoặc CONTENT_MANAGER:**
 - `POST`, `PUT`, `DELETE` trên `/api/songs`, `/api/albums`, `/api/artists`, `/api/genres`
+- `PUT`, `DELETE` trên `/api/songs/{songId}/lyrics`
+
+**Endpoint yêu cầu ADMIN:**
+- Tất cả `/api/admin/**`
 
 ---
 
