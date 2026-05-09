@@ -69,6 +69,31 @@ class AuthControllerLoginTest {
     }
 
     @Test
+        void login_ShouldReturn400_WhenEmailHasWhitespaceAndUppercase() throws Exception {
+        AuthResponse authResponse = new AuthResponse(
+                "access-token",
+                "refresh-token",
+                new UserSummaryResponse(
+                        UUID.randomUUID(),
+                        "user@example.com",
+                        "Test User",
+                        Role.USER
+                )
+        );
+
+        when(authServicePort.login(any(LoginRequest.class))).thenReturn(authResponse);
+
+        LoginRequest request = new LoginRequest("  USER@Example.COM  ", "12345678");
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("email: Email is invalid"));
+    }
+
+    @Test
     void login_ShouldReturn401_WhenCredentialsInvalid() throws Exception {
         when(authServicePort.login(any(LoginRequest.class)))
                 .thenThrow(new InvalidCredentialsException("Invalid credentials"));
@@ -81,6 +106,36 @@ class AuthControllerLoginTest {
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.message").value("Invalid credentials"));
+    }
+
+    @Test
+    void login_ShouldReturn401_WhenEmailNotFound() throws Exception {
+        when(authServicePort.login(any(LoginRequest.class)))
+                .thenThrow(new InvalidCredentialsException("Invalid credentials"));
+
+        LoginRequest request = new LoginRequest("missing@example.com", "12345678");
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("Invalid credentials"));
+    }
+
+    @Test
+    void login_ShouldReturn401_WhenUserInactive() throws Exception {
+        when(authServicePort.login(any(LoginRequest.class)))
+                .thenThrow(new InvalidCredentialsException("User is inactive"));
+
+        LoginRequest request = new LoginRequest("user@example.com", "12345678");
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("User is inactive"));
     }
 
     @Test

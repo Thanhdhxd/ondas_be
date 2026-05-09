@@ -5,10 +5,14 @@ import com.example.ondas_be.application.dto.request.AddSongToPlaylistRequest;
 import com.example.ondas_be.application.dto.request.CreatePlaylistRequest;
 import com.example.ondas_be.application.dto.request.PlaylistFilterRequest;
 import com.example.ondas_be.application.dto.request.ReorderPlaylistSongsRequest;
+import com.example.ondas_be.application.dto.request.UpdatePlaylistRequest;
 import com.example.ondas_be.application.dto.response.PlaylistResponse;
 import com.example.ondas_be.application.exception.PlaylistAccessDeniedException;
 import com.example.ondas_be.application.exception.PlaylistReorderInvalidException;
 import com.example.ondas_be.application.exception.PlaylistSongAlreadyExistsException;
+import com.example.ondas_be.application.exception.PlaylistSongNotFoundException;
+import com.example.ondas_be.application.exception.PlaylistNotFoundException;
+import com.example.ondas_be.application.exception.SongNotFoundException;
 import com.example.ondas_be.application.mapper.PlaylistMapper;
 import com.example.ondas_be.application.service.impl.PlaylistService;
 import com.example.ondas_be.application.service.port.StoragePort;
@@ -155,6 +159,34 @@ class PlaylistServiceTest {
     }
 
     @Test
+    void updatePlaylist_WhenValid_ShouldPersistChanges() {
+        UpdatePlaylistRequest request = new UpdatePlaylistRequest();
+        request.setName("New Name");
+        request.setDescription("new desc");
+        request.setIsPublic(true);
+
+        when(userRepoPort.findByEmail("user@example.com")).thenReturn(Optional.of(user));
+        when(playlistRepoPort.findById(playlistId)).thenReturn(Optional.of(playlist));
+        when(playlistRepoPort.save(any(Playlist.class))).thenReturn(playlist);
+
+        PlaylistResponse response = playlistService.updatePlaylist("user@example.com", playlistId, request, null);
+
+        assertEquals(PlaylistResponse.class, response.getClass());
+        verify(playlistRepoPort).save(any(Playlist.class));
+    }
+
+    @Test
+    void updatePlaylist_WhenNotFound_ShouldThrowPlaylistNotFoundException() {
+        UpdatePlaylistRequest request = new UpdatePlaylistRequest();
+
+        when(userRepoPort.findByEmail("user@example.com")).thenReturn(Optional.of(user));
+        when(playlistRepoPort.findById(playlistId)).thenReturn(Optional.empty());
+
+        assertThrows(PlaylistNotFoundException.class,
+                () -> playlistService.updatePlaylist("user@example.com", playlistId, request, null));
+    }
+
+    @Test
     void addSongToPlaylist_WhenSongAlreadyExists_ShouldThrowConflict() {
         AddSongToPlaylistRequest request = new AddSongToPlaylistRequest();
         UUID songId = UUID.randomUUID();
@@ -171,6 +203,77 @@ class PlaylistServiceTest {
                 () -> playlistService.addSongToPlaylist("user@example.com", playlistId, request));
 
         verify(playlistSongRepoPort, never()).save(any());
+    }
+
+    @Test
+    void addSongToPlaylist_WhenValid_ShouldAddAndSync() {
+        AddSongToPlaylistRequest request = new AddSongToPlaylistRequest();
+        UUID songId = UUID.randomUUID();
+        request.setSongId(songId);
+
+        when(userRepoPort.findByEmail("user@example.com")).thenReturn(Optional.of(user));
+        when(playlistRepoPort.findById(playlistId)).thenReturn(Optional.of(playlist));
+        when(songRepoPort.findById(songId)).thenReturn(Optional.of(new Song(
+                songId, "S", "s", 100, "url", "mp3", 100L, null,
+                null, null, null, 0L, true, null, LocalDateTime.now(), LocalDateTime.now(), List.of(), List.of())));
+        when(playlistSongRepoPort.existsByPlaylistIdAndSongId(playlistId, songId)).thenReturn(false);
+        when(playlistSongRepoPort.findMaxPositionByPlaylistId(playlistId)).thenReturn(0);
+        when(playlistSongRepoPort.countByPlaylistId(playlistId)).thenReturn(1L);
+        when(playlistRepoPort.save(any(Playlist.class))).thenReturn(playlist);
+        when(playlistRepoPort.findById(playlistId)).thenReturn(Optional.of(playlist));
+        when(playlistSongRepoPort.findByPlaylistIdOrderByPosition(playlistId)).thenReturn(List.of());
+
+        PlaylistResponse response = playlistService.addSongToPlaylist("user@example.com", playlistId, request);
+
+        assertEquals(PlaylistResponse.class, response.getClass());
+        verify(playlistSongRepoPort).save(any());
+        verify(playlistRepoPort).save(any(Playlist.class));
+    }
+
+    @Test
+    void addSongToPlaylist_WhenSongMissing_ShouldThrowSongNotFoundException() {
+        AddSongToPlaylistRequest request = new AddSongToPlaylistRequest();
+        UUID songId = UUID.randomUUID();
+        request.setSongId(songId);
+
+        when(userRepoPort.findByEmail("user@example.com")).thenReturn(Optional.of(user));
+        when(playlistRepoPort.findById(playlistId)).thenReturn(Optional.of(playlist));
+        when(songRepoPort.findById(songId)).thenReturn(Optional.empty());
+
+        assertThrows(SongNotFoundException.class,
+                () -> playlistService.addSongToPlaylist("user@example.com", playlistId, request));
+    }
+
+    @Test
+    void removeSongFromPlaylist_WhenValid_ShouldDeleteAndSync() {
+        UUID songId = UUID.randomUUID();
+
+        when(userRepoPort.findByEmail("user@example.com")).thenReturn(Optional.of(user));
+        when(playlistRepoPort.findById(playlistId)).thenReturn(Optional.of(playlist));
+        when(playlistSongRepoPort.existsByPlaylistIdAndSongId(playlistId, songId)).thenReturn(true);
+        when(playlistSongRepoPort.countByPlaylistId(playlistId)).thenReturn(0L);
+        when(playlistRepoPort.save(any(Playlist.class))).thenReturn(playlist);
+        when(playlistRepoPort.findById(playlistId)).thenReturn(Optional.of(playlist));
+        when(playlistSongRepoPort.findSongIdsByPlaylistId(playlistId)).thenReturn(List.of());
+        when(playlistSongRepoPort.findByPlaylistIdOrderByPosition(playlistId)).thenReturn(List.of());
+
+        PlaylistResponse response = playlistService.removeSongFromPlaylist("user@example.com", playlistId, songId);
+
+        assertEquals(PlaylistResponse.class, response.getClass());
+        verify(playlistSongRepoPort).deleteByPlaylistIdAndSongId(playlistId, songId);
+        verify(playlistSongRepoPort).updateSongOrder(playlistId, List.of());
+    }
+
+    @Test
+    void removeSongFromPlaylist_WhenMissing_ShouldThrowPlaylistSongNotFoundException() {
+        UUID songId = UUID.randomUUID();
+
+        when(userRepoPort.findByEmail("user@example.com")).thenReturn(Optional.of(user));
+        when(playlistRepoPort.findById(playlistId)).thenReturn(Optional.of(playlist));
+        when(playlistSongRepoPort.existsByPlaylistIdAndSongId(playlistId, songId)).thenReturn(false);
+
+        assertThrows(PlaylistSongNotFoundException.class,
+                () -> playlistService.removeSongFromPlaylist("user@example.com", playlistId, songId));
     }
 
     @Test
@@ -196,6 +299,48 @@ class PlaylistServiceTest {
         assertThrows(PlaylistAccessDeniedException.class,
                 () -> playlistService.deletePlaylist("other@example.com", playlistId));
     }
+
+        @Test
+        void getPlaylistById_WhenPublic_ShouldAllowAnonymous() {
+        Playlist publicPlaylist = new Playlist(
+            playlistId,
+            userId,
+            "My Playlist",
+            "desc",
+            null,
+            true,
+            0,
+            LocalDateTime.now(),
+            LocalDateTime.now());
+
+        when(playlistRepoPort.findById(playlistId)).thenReturn(Optional.of(publicPlaylist));
+        when(playlistSongRepoPort.findByPlaylistIdOrderByPosition(playlistId)).thenReturn(List.of());
+
+        PlaylistResponse response = playlistService.getPlaylistById(null, playlistId);
+
+        assertEquals(PlaylistResponse.class, response.getClass());
+        }
+
+        @Test
+        void getPlaylistById_WhenPrivateAndNotOwner_ShouldThrowAccessDenied() {
+        when(playlistRepoPort.findById(playlistId)).thenReturn(Optional.of(playlist));
+        when(userRepoPort.findByEmail("other@example.com")).thenReturn(Optional.of(new User(
+            UUID.randomUUID(),
+            "other@example.com",
+            "hash",
+            "Other",
+            null,
+            true,
+            null,
+            null,
+            null,
+            com.example.ondas_be.domain.entity.Role.USER,
+            LocalDateTime.now(),
+            LocalDateTime.now())));
+
+        assertThrows(PlaylistAccessDeniedException.class,
+            () -> playlistService.getPlaylistById("other@example.com", playlistId));
+        }
 
     @Test
     void getPlaylists_WithSongId_ShouldSetContainsSongTrue_WhenSongInPlaylist() {
@@ -266,5 +411,35 @@ class PlaylistServiceTest {
                 () -> playlistService.reorderPlaylistSongs("user@example.com", playlistId, request));
 
         verify(playlistSongRepoPort, never()).updateSongOrder(eq(playlistId), anyList());
+    }
+
+    @Test
+    void reorderPlaylistSongs_WhenValid_ShouldUpdateOrder() {
+        UUID song1 = UUID.randomUUID();
+        UUID song2 = UUID.randomUUID();
+
+        ReorderPlaylistSongsRequest request = new ReorderPlaylistSongsRequest();
+        request.setSongIds(List.of(song2, song1));
+
+        when(userRepoPort.findByEmail("user@example.com")).thenReturn(Optional.of(user));
+        when(playlistRepoPort.findById(playlistId)).thenReturn(Optional.of(playlist));
+        when(playlistSongRepoPort.findSongIdsByPlaylistId(playlistId)).thenReturn(List.of(song1, song2));
+        when(playlistRepoPort.findById(playlistId)).thenReturn(Optional.of(playlist));
+        when(playlistSongRepoPort.findByPlaylistIdOrderByPosition(playlistId)).thenReturn(List.of());
+
+        PlaylistResponse response = playlistService.reorderPlaylistSongs("user@example.com", playlistId, request);
+
+        assertEquals(PlaylistResponse.class, response.getClass());
+        verify(playlistSongRepoPort).updateSongOrder(playlistId, List.of(song2, song1));
+    }
+
+    @Test
+    void deletePlaylist_WhenValid_ShouldDelete() {
+        when(userRepoPort.findByEmail("user@example.com")).thenReturn(Optional.of(user));
+        when(playlistRepoPort.findById(playlistId)).thenReturn(Optional.of(playlist));
+
+        playlistService.deletePlaylist("user@example.com", playlistId);
+
+        verify(playlistRepoPort).deleteById(playlistId);
     }
 }

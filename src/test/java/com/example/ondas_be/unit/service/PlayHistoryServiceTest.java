@@ -4,6 +4,7 @@ import com.example.ondas_be.application.dto.common.PageResultDto;
 import com.example.ondas_be.application.dto.response.PlayHistoryResponse;
 import com.example.ondas_be.application.exception.PlayHistoryNotFoundException;
 import com.example.ondas_be.application.exception.SongNotFoundException;
+import com.example.ondas_be.application.exception.UserNotFoundException;
 import com.example.ondas_be.application.service.impl.PlayHistoryService;
 import com.example.ondas_be.domain.entity.PlayHistory;
 import com.example.ondas_be.domain.entity.Role;
@@ -86,6 +87,13 @@ class PlayHistoryServiceTest {
         assertEquals(SONG_ID, result.getItems().get(0).getSong().getId());
     }
 
+    @Test
+    void getMyHistory_WhenUserNotFound_ShouldThrow() {
+        when(userRepoPort.findByEmail(EMAIL)).thenReturn(Optional.empty());
+
+        assertThrows(UserNotFoundException.class, () -> playHistoryService.getMyHistory(EMAIL, 0, 20));
+    }
+
     // ── clearMyHistory ──────────────────────────────────────────────────────────
 
     @Test
@@ -95,6 +103,13 @@ class PlayHistoryServiceTest {
         playHistoryService.clearMyHistory(EMAIL);
 
         verify(playHistoryRepoPort).deleteAllByUserId(USER_ID);
+    }
+
+    @Test
+    void clearMyHistory_WhenUserNotFound_ShouldThrow() {
+        when(userRepoPort.findByEmail(EMAIL)).thenReturn(Optional.empty());
+
+        assertThrows(UserNotFoundException.class, () -> playHistoryService.clearMyHistory(EMAIL));
     }
 
     // ── deleteHistoryEntry ──────────────────────────────────────────────────────
@@ -119,6 +134,14 @@ class PlayHistoryServiceTest {
         assertThrows(PlayHistoryNotFoundException.class,
                 () -> playHistoryService.deleteHistoryEntry(EMAIL, 99L));
         verify(playHistoryRepoPort, never()).deleteByIdAndUserId(any(), any());
+    }
+
+    @Test
+    void deleteHistoryEntry_WhenUserNotFound_ShouldThrow() {
+        when(userRepoPort.findByEmail(EMAIL)).thenReturn(Optional.empty());
+
+        assertThrows(UserNotFoundException.class,
+                () -> playHistoryService.deleteHistoryEntry(EMAIL, 99L));
     }
 
     // ── recordPlay ──────────────────────────────────────────────────────────────
@@ -156,5 +179,13 @@ class PlayHistoryServiceTest {
         assertThrows(SongNotFoundException.class,
                 () -> playHistoryService.recordPlay(SONG_ID, EMAIL, "home"));
         verify(playHistoryRepoPort, never()).save(any());
+    }
+
+    @Test
+    void recordPlay_WhenUserNotFound_ShouldThrow() {
+        when(userRepoPort.findByEmail(EMAIL)).thenReturn(Optional.empty());
+
+        assertThrows(UserNotFoundException.class,
+                () -> playHistoryService.recordPlay(SONG_ID, EMAIL, "home"));
     }
 }

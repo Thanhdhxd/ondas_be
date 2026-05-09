@@ -84,6 +84,21 @@ class AuthControllerRefreshTokenTest {
     }
 
     @Test
+    void refreshToken_ShouldReturn401_WhenTokenRevoked() throws Exception {
+        when(authServicePort.refreshToken(any(RefreshTokenRequest.class)))
+                .thenThrow(new InvalidTokenException("Refresh token revoked"));
+
+        RefreshTokenRequest request = new RefreshTokenRequest("revoked-token");
+
+        mockMvc.perform(post("/api/auth/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("Refresh token revoked"));
+    }
+
+    @Test
     void refreshToken_ShouldReturn400_WhenRequestInvalid() throws Exception {
         String invalidRequest = """
                 {

@@ -2,6 +2,7 @@ package com.example.ondas_be.unit.service;
 
 import com.example.ondas_be.application.dto.request.ResetPasswordRequest;
 import com.example.ondas_be.application.exception.InvalidTokenException;
+import com.example.ondas_be.application.exception.UserNotFoundException;
 import com.example.ondas_be.application.mapper.AuthMapper;
 import com.example.ondas_be.application.service.impl.AuthService;
 import com.example.ondas_be.application.service.port.EmailPort;
@@ -139,6 +140,16 @@ class AuthServiceResetPasswordTest {
         verify(userRepoPort, never()).save(any(User.class));
         verify(otpCodeRepoPort, never()).markAsUsed(any(UUID.class));
         verify(refreshTokenRepoPort, never()).revokeAllByUserId(any(UUID.class));
+    }
+
+    @Test
+    void resetPassword_WhenUserNotFound_ShouldThrowUserNotFoundException() {
+        when(userRepoPort.findByEmail("missing@example.com")).thenReturn(Optional.empty());
+
+        assertThrows(UserNotFoundException.class,
+                () -> authService.resetPassword(new ResetPasswordRequest("missing@example.com", "123456", "new-password")));
+
+        verify(otpCodeRepoPort, never()).findActiveByUserIdAndCodeHash(any(UUID.class), any());
     }
 
     private User buildUser(UUID userId, String passwordHash) {

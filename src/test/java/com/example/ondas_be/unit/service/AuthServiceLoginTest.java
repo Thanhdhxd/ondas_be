@@ -125,6 +125,33 @@ class AuthServiceLoginTest {
         verify(jwtUtil, never()).generateAccessToken(any(), any());
     }
 
+    @Test
+    void login_WhenEmailHasWhitespaceAndUppercase_ShouldNormalize() {
+        UUID userId = UUID.randomUUID();
+        User existingUser = buildUser(userId, "user@example.com", "hashed-password", true, null);
+        User updatedUser = buildUser(userId, "user@example.com", "hashed-password", true, LocalDateTime.now());
+
+        AuthResponse expected = new AuthResponse(
+                "access-token",
+                "refresh-token",
+                new UserSummaryResponse(userId, "user@example.com", "Test User", Role.USER)
+        );
+
+        when(userRepoPort.findByEmail("user@example.com")).thenReturn(java.util.Optional.of(existingUser));
+        when(passwordEncoder.matches("12345678", "hashed-password")).thenReturn(true);
+        when(userRepoPort.save(any(User.class))).thenReturn(updatedUser);
+        when(jwtUtil.generateAccessToken(eq("user@example.com"), eq(Role.USER))).thenReturn("access-token");
+        when(jwtUtil.generateRefreshToken(eq("user@example.com"), eq(Role.USER))).thenReturn("refresh-token");
+        when(jwtUtil.extractExpiration("refresh-token")).thenReturn(Date.from(Instant.now().plusSeconds(3600)));
+        when(refreshTokenRepoPort.save(any(RefreshToken.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(authMapper.toAuthResponse(updatedUser, "access-token", "refresh-token")).thenReturn(expected);
+
+        AuthResponse result = authService.login(new LoginRequest("  USER@Example.COM ", "12345678"));
+
+        assertEquals("user@example.com", result.getUser().getEmail());
+        verify(userRepoPort).findByEmail("user@example.com");
+    }
+
     private User buildUser(UUID userId, String email, String passwordHash, boolean active, LocalDateTime lastLoginAt) {
         return new User(
                 userId,

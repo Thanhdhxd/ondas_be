@@ -70,6 +70,31 @@ class AuthControllerRegisterTest {
     }
 
     @Test
+        void register_ShouldReturn400_WhenEmailAndDisplayNameHaveWhitespace() throws Exception {
+        AuthResponse authResponse = new AuthResponse(
+                "jwt-token",
+                "refresh-token",
+                new UserSummaryResponse(
+                        UUID.randomUUID(),
+                        "user@example.com",
+                        "Test User",
+                        Role.USER
+                )
+        );
+
+        when(authServicePort.register(any(RegisterRequest.class))).thenReturn(authResponse);
+
+        RegisterRequest request = new RegisterRequest("  USER@Example.COM ", "12345678", "  Test User  ");
+
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("email: Email is invalid"));
+    }
+
+    @Test
     void register_ShouldReturn409_WhenEmailExists() throws Exception {
         when(authServicePort.register(any(RegisterRequest.class)))
                 .thenThrow(new EmailAlreadyExistsException("Email already exists"));

@@ -51,6 +51,21 @@ class AuthControllerLogoutTest {
     }
 
     @Test
+    void logout_ShouldReturn200_WhenTokenNotFound() throws Exception {
+      doNothing().when(authServicePort).logout(any(LogoutRequest.class));
+
+      LogoutRequest request = new LogoutRequest("not-found-token");
+
+      mockMvc.perform(delete("/api/auth/logout")
+              .contentType(MediaType.APPLICATION_JSON)
+              .content(objectMapper.writeValueAsString(request)))
+          .andExpect(status().isOk())
+          .andExpect(jsonPath("$.success").value(true))
+          .andExpect(jsonPath("$.message").value("OK"))
+          .andExpect(jsonPath("$.data").isEmpty());
+    }
+
+    @Test
     void logout_ShouldReturn400_WhenRequestInvalid() throws Exception {
         String invalidRequest = """
                 {
