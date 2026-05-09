@@ -172,6 +172,13 @@ class FavoriteServiceTest {
         assertFalse(favoriteService.isFavorite(EMAIL, SONG_ID));
     }
 
+    @Test
+    void isFavorite_WhenUserNotFound_ShouldThrow() {
+        when(userRepoPort.findByEmail(EMAIL)).thenReturn(Optional.empty());
+
+        assertThrows(UserNotFoundException.class, () -> favoriteService.isFavorite(EMAIL, SONG_ID));
+    }
+
     // ── getFavorites ────────────────────────────────────────────────────────────
 
     @Test
@@ -207,5 +214,12 @@ class FavoriteServiceTest {
         assertNotNull(result);
         assertTrue(result.getItems().isEmpty());
         assertEquals(0L, result.getTotalElements());
+    }
+
+    @Test
+    void getFavorites_WhenUserNotFound_ShouldThrow() {
+        when(userRepoPort.findByEmail(EMAIL)).thenReturn(Optional.empty());
+
+        assertThrows(UserNotFoundException.class, () -> favoriteService.getFavorites(EMAIL, 0, 20));
     }
 }

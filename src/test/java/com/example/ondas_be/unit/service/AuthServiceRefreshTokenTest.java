@@ -147,6 +147,20 @@ class AuthServiceRefreshTokenTest {
         verify(jwtUtil, never()).generateAccessToken(any(), any());
     }
 
+    @Test
+    void refreshToken_WhenTokenNotFound_ShouldThrowInvalidTokenException() {
+        String rawRefreshToken = "missing-refresh-token";
+        String tokenHash = hashToken(rawRefreshToken);
+
+        when(jwtUtil.isRefreshTokenValid(rawRefreshToken)).thenReturn(true);
+        when(refreshTokenRepoPort.findByTokenHash(tokenHash)).thenReturn(Optional.empty());
+
+        assertThrows(InvalidTokenException.class,
+                () -> authService.refreshToken(new RefreshTokenRequest(rawRefreshToken)));
+
+        verify(userRepoPort, never()).findById(any());
+    }
+
     private String hashToken(String token) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");

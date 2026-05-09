@@ -6,7 +6,9 @@ import com.example.ondas_be.application.dto.response.ArtistResponse;
 import com.example.ondas_be.application.dto.response.ArtistSummaryResponse;
 import com.example.ondas_be.application.dto.response.GenreSummaryResponse;
 import com.example.ondas_be.application.dto.response.SearchResponse;
+import com.example.ondas_be.application.dto.response.SearchSuggestionResponse;
 import com.example.ondas_be.application.dto.response.SongResponse;
+import com.example.ondas_be.application.exception.UserNotFoundException;
 import com.example.ondas_be.application.mapper.AlbumMapper;
 import com.example.ondas_be.application.mapper.ArtistMapper;
 import com.example.ondas_be.application.mapper.GenreMapper;
@@ -15,14 +17,18 @@ import com.example.ondas_be.application.service.impl.SearchService;
 import com.example.ondas_be.domain.entity.Album;
 import com.example.ondas_be.domain.entity.Artist;
 import com.example.ondas_be.domain.entity.Genre;
+import com.example.ondas_be.domain.entity.SearchHistory;
 import com.example.ondas_be.domain.entity.Song;
+import com.example.ondas_be.domain.entity.User;
 import com.example.ondas_be.domain.repoport.AlbumArtistRepoPort;
 import com.example.ondas_be.domain.repoport.AlbumRepoPort;
 import com.example.ondas_be.domain.repoport.ArtistRepoPort;
 import com.example.ondas_be.domain.repoport.GenreRepoPort;
+import com.example.ondas_be.domain.repoport.SearchHistoryRepoPort;
 import com.example.ondas_be.domain.repoport.SongArtistRepoPort;
 import com.example.ondas_be.domain.repoport.SongGenreRepoPort;
 import com.example.ondas_be.domain.repoport.SongRepoPort;
+import com.example.ondas_be.domain.repoport.UserRepoPort;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -32,10 +38,13 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -62,6 +71,12 @@ class SearchServiceTest {
 
     @Mock
     private AlbumArtistRepoPort albumArtistRepoPort;
+
+        @Mock
+        private SearchHistoryRepoPort searchHistoryRepoPort;
+
+        @Mock
+        private UserRepoPort userRepoPort;
 
     @Mock
     private SongMapper songMapper;
@@ -183,4 +198,96 @@ class SearchServiceTest {
         assertThrows(IllegalArgumentException.class, () -> searchService.search(filter));
         verifyNoInteractions(songRepoPort, artistRepoPort, albumRepoPort, songMapper, artistMapper, albumMapper);
     }
+
+        @Test
+        void search_WhenQueryHasWhitespace_ShouldTrimAndClampSize() {
+                SearchFilterRequest filter = new SearchFilterRequest();
+                filter.setQuery("  love  ");
+                filter.setPage(-1);
+                filter.setSize(100);
+
+                when(songRepoPort.findByTitleContains("love", 0, 50)).thenReturn(List.of());
+                when(songRepoPort.countByTitleContains("love")).thenReturn(0L);
+                when(artistRepoPort.findByNameContains("love", 0, 50)).thenReturn(List.of());
+                when(artistRepoPort.countByNameContains("love")).thenReturn(0L);
+                when(albumRepoPort.findByTitleContains("love", 0, 50)).thenReturn(List.of());
+                when(albumRepoPort.countByTitleContains("love")).thenReturn(0L);
+
+                SearchResponse response = searchService.search(filter);
+
+                assertEquals("love", response.getQuery());
+                assertEquals(0, response.getPage());
+                assertEquals(50, response.getSize());
+        }
+
+        @Test
+        void getSuggestions_WhenValid_ShouldReturnSuggestions() {
+                UUID userId = UUID.randomUUID();
+                User user = new User(userId, "user@example.com", "hash", "User", null,
+                                true, null, null, null, null, LocalDateTime.now(), LocalDateTime.now());
+
+                when(userRepoPort.findByEmail("user@example.com")).thenReturn(Optional.of(user));
+                when(searchHistoryRepoPort.findRecentByUserId(userId, 20))
+                                .thenReturn(List.of(new SearchHistory(1L, userId, "love", LocalDateTime.now())));
+                when(searchHistoryRepoPort.findTrendingQueries(10, 7)).thenReturn(List.of("love"));
+                when(songRepoPort.findTopByPlayCount(10)).thenReturn(List.of());
+                when(genreRepoPort.findAll()).thenReturn(List.of());
+                when(genreMapper.toResponseList(List.of())).thenReturn(List.of());
+
+                SearchSuggestionResponse response = searchService.getSuggestions("user@example.com");
+
+                assertEquals(1, response.getRecentSearches().size());
+                assertEquals(1, response.getTrendingSearches().size());
+        }
+
+        @Test
+        void getSuggestions_WhenUserNotFound_ShouldThrow() {
+                when(userRepoPort.findByEmail("missing@example.com")).thenReturn(Optional.empty());
+
+                assertThrows(UserNotFoundException.class,
+                                () -> searchService.getSuggestions("missing@example.com"));
+        }
+
+        @Test
+        void saveSearchHistory_WhenValid_ShouldReplaceAndSave() {
+                UUID userId = UUID.randomUUID();
+                User user = new User(userId, "user@example.com", "hash", "User", null,
+                                true, null, null, null, null, LocalDateTime.now(), LocalDateTime.now());
+
+                when(userRepoPort.findByEmail("user@example.com")).thenReturn(Optional.of(user));
+
+                searchService.saveSearchHistory("  love  ", "user@example.com");
+
+                verify(searchHistoryRepoPort).deleteByUserIdAndQuery(userId, "love");
+                verify(searchHistoryRepoPort).save(any(SearchHistory.class));
+        }
+
+        @Test
+        void saveSearchHistory_WhenUserNotFound_ShouldThrow() {
+                when(userRepoPort.findByEmail("missing@example.com")).thenReturn(Optional.empty());
+
+                assertThrows(UserNotFoundException.class,
+                                () -> searchService.saveSearchHistory("love", "missing@example.com"));
+        }
+
+        @Test
+        void clearSearchHistory_WhenValid_ShouldDeleteAll() {
+                UUID userId = UUID.randomUUID();
+                User user = new User(userId, "user@example.com", "hash", "User", null,
+                                true, null, null, null, null, LocalDateTime.now(), LocalDateTime.now());
+
+                when(userRepoPort.findByEmail("user@example.com")).thenReturn(Optional.of(user));
+
+                searchService.clearSearchHistory("user@example.com");
+
+                verify(searchHistoryRepoPort).deleteAllByUserId(userId);
+        }
+
+        @Test
+        void clearSearchHistory_WhenUserNotFound_ShouldThrow() {
+                when(userRepoPort.findByEmail("missing@example.com")).thenReturn(Optional.empty());
+
+                assertThrows(UserNotFoundException.class,
+                                () -> searchService.clearSearchHistory("missing@example.com"));
+        }
 }

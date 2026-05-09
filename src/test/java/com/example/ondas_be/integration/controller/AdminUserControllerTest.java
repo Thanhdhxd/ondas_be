@@ -7,6 +7,9 @@ import com.example.ondas_be.application.dto.response.AdminUserResponse;
 import com.example.ondas_be.application.exception.UserNotFoundException;
 import com.example.ondas_be.application.service.port.AdminUserServicePort;
 import com.example.ondas_be.domain.entity.Role;
+import com.example.ondas_be.infrastructure.security.JwtUtil;
+import com.example.ondas_be.infrastructure.security.SecurityConfig;
+import com.example.ondas_be.infrastructure.security.UserDetailsServiceImpl;
 import com.example.ondas_be.presentation.advice.GlobalExceptionHandler;
 import com.example.ondas_be.presentation.controller.AdminUserController;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -16,6 +19,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -32,8 +36,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(controllers = AdminUserController.class)
-@AutoConfigureMockMvc(addFilters = false)   // tắt JWT filter khi test controller
-@Import(GlobalExceptionHandler.class)
+@AutoConfigureMockMvc
+@Import({GlobalExceptionHandler.class, SecurityConfig.class})
 class AdminUserControllerTest {
 
     @Autowired
@@ -44,6 +48,12 @@ class AdminUserControllerTest {
 
     @MockitoBean
     private AdminUserServicePort adminUserServicePort;
+
+        @MockitoBean
+        private JwtUtil jwtUtil;
+
+        @MockitoBean
+        private UserDetailsServiceImpl userDetailsService;
 
     // ── helper ──────────────────────────────────────────────────────────────
 
@@ -66,6 +76,7 @@ class AdminUserControllerTest {
     // ── GET /api/admin/users ─────────────────────────────────────────────────
 
     @Test
+        @WithMockUser(roles = "ADMIN")
     void getUsers_ShouldReturn200WithPageResult() throws Exception {
         UUID id = UUID.randomUUID();
         AdminUserResponse userResponse = buildUserResponse(id, true, null);
@@ -87,6 +98,7 @@ class AdminUserControllerTest {
     }
 
     @Test
+        @WithMockUser(roles = "ADMIN")
     void getUsers_ShouldReturn200WithEmptyList_WhenNoMatch() throws Exception {
         PageResultDto<AdminUserResponse> emptyPage = PageResultDto.<AdminUserResponse>builder()
                 .items(List.of())
@@ -103,9 +115,29 @@ class AdminUserControllerTest {
                 .andExpect(jsonPath("$.data.items").isEmpty());
     }
 
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void getUsers_ShouldReturn400_WhenPageIsNegative() throws Exception {
+        when(adminUserServicePort.getUsers(any(AdminUserFilterRequest.class)))
+                .thenThrow(new IllegalArgumentException("page must be >= 0"));
+
+        mockMvc.perform(get("/api/admin/users").param("page", "-1"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("page must be >= 0"));
+    }
+
+    @Test
+    @WithMockUser(roles = "USER")
+    void getUsers_ShouldReturn403_WhenUserIsNotAdmin() throws Exception {
+        mockMvc.perform(get("/api/admin/users"))
+                .andExpect(status().isForbidden());
+    }
+
     // ── GET /api/admin/users/{id} ────────────────────────────────────────────
 
     @Test
+        @WithMockUser(roles = "ADMIN")
     void getUserById_ShouldReturn200_WhenUserExists() throws Exception {
         UUID id = UUID.randomUUID();
         AdminUserResponse response = buildUserResponse(id, true, null);
@@ -121,6 +153,7 @@ class AdminUserControllerTest {
     }
 
     @Test
+        @WithMockUser(roles = "ADMIN")
     void getUserById_ShouldReturn404_WhenUserNotFound() throws Exception {
         UUID unknownId = UUID.randomUUID();
         when(adminUserServicePort.getUserById(unknownId))
@@ -131,9 +164,25 @@ class AdminUserControllerTest {
                 .andExpect(jsonPath("$.success").value(false));
     }
 
+        @Test
+        @WithMockUser(roles = "ADMIN")
+        void getUserById_ShouldReturn400_WhenIdInvalid() throws Exception {
+                mockMvc.perform(get("/api/admin/users/{id}", "not-a-uuid"))
+                                .andExpect(status().isBadRequest())
+                                .andExpect(jsonPath("$.success").value(false));
+        }
+
+        @Test
+        @WithMockUser(roles = "USER")
+        void getUserById_ShouldReturn403_WhenUserIsNotAdmin() throws Exception {
+                mockMvc.perform(get("/api/admin/users/{id}", UUID.randomUUID()))
+                                .andExpect(status().isForbidden());
+        }
+
     // ── PATCH /api/admin/users/{id}/ban ──────────────────────────────────────
 
     @Test
+        @WithMockUser(roles = "ADMIN")
     void banUser_ShouldReturn200_WhenUserExistsAndReasonProvided() throws Exception {
         UUID id = UUID.randomUUID();
         BanUserRequest request = new BanUserRequest();
@@ -153,6 +202,7 @@ class AdminUserControllerTest {
     }
 
     @Test
+        @WithMockUser(roles = "ADMIN")
     void banUser_ShouldReturn400_WhenBanReasonIsBlank() throws Exception {
         UUID id = UUID.randomUUID();
         BanUserRequest request = new BanUserRequest();
@@ -166,6 +216,7 @@ class AdminUserControllerTest {
     }
 
     @Test
+        @WithMockUser(roles = "ADMIN")
     void banUser_ShouldReturn404_WhenUserNotFound() throws Exception {
         UUID unknownId = UUID.randomUUID();
         BanUserRequest request = new BanUserRequest();
@@ -181,9 +232,23 @@ class AdminUserControllerTest {
                 .andExpect(jsonPath("$.success").value(false));
     }
 
+        @Test
+        @WithMockUser(roles = "USER")
+        void banUser_ShouldReturn403_WhenUserIsNotAdmin() throws Exception {
+                UUID id = UUID.randomUUID();
+                BanUserRequest request = new BanUserRequest();
+                request.setBanReason("Reason");
+
+                mockMvc.perform(patch("/api/admin/users/{id}/ban", id)
+                                                .contentType(MediaType.APPLICATION_JSON)
+                                                .content(objectMapper.writeValueAsString(request)))
+                                .andExpect(status().isForbidden());
+        }
+
     // ── PATCH /api/admin/users/{id}/unban ────────────────────────────────────
 
     @Test
+        @WithMockUser(roles = "ADMIN")
     void unbanUser_ShouldReturn200_AndClearBanInfo() throws Exception {
         UUID id = UUID.randomUUID();
         AdminUserResponse response = buildUserResponse(id, true, null);
@@ -198,6 +263,7 @@ class AdminUserControllerTest {
     }
 
     @Test
+        @WithMockUser(roles = "ADMIN")
     void unbanUser_ShouldReturn404_WhenUserNotFound() throws Exception {
         UUID unknownId = UUID.randomUUID();
         when(adminUserServicePort.unbanUser(unknownId))
@@ -207,4 +273,12 @@ class AdminUserControllerTest {
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.success").value(false));
     }
+        @Test
+        @WithMockUser(roles = "USER")
+        void unbanUser_ShouldReturn403_WhenUserIsNotAdmin() throws Exception {
+                UUID id = UUID.randomUUID();
+
+                mockMvc.perform(patch("/api/admin/users/{id}/unban", id))
+                                .andExpect(status().isForbidden());
+        }
 }

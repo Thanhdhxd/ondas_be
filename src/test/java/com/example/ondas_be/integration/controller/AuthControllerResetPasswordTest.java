@@ -68,6 +68,21 @@ class AuthControllerResetPasswordTest {
     }
 
     @Test
+    void resetPassword_ShouldReturn401_WhenOtpAlreadyUsed() throws Exception {
+        doThrow(new InvalidTokenException("OTP already used"))
+                .when(authServicePort).resetPassword(any(ResetPasswordRequest.class));
+
+        ResetPasswordRequest request = new ResetPasswordRequest("user@example.com", "123456", "new-password-123");
+
+        mockMvc.perform(post("/api/auth/reset-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("OTP already used"));
+    }
+
+    @Test
     void resetPassword_ShouldReturn400_WhenRequestInvalid() throws Exception {
         String invalidRequest = """
                 {

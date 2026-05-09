@@ -143,6 +143,23 @@ class AdminUserServiceTest {
         assertTrue(result.getItems().isEmpty());
     }
 
+    @Test
+    void getUsers_ShouldUsePageAndSizeFromFilter() {
+        AdminUserFilterRequest filter = new AdminUserFilterRequest();
+        filter.setPage(2);
+        filter.setSize(50);
+        var page = new PageImpl<>(List.of(activeUser), PageRequest.of(2, 50), 1);
+
+        when(adminUserRepoPort.findAllWithFilters(isNull(), isNull(), isNull(), eq(PageRequest.of(2, 50))))
+                .thenReturn(page);
+
+        PageResultDto<AdminUserResponse> result = adminUserService.getUsers(filter);
+
+        assertEquals(2, result.getPage());
+        assertEquals(50, result.getSize());
+        verify(adminUserRepoPort).findAllWithFilters(isNull(), isNull(), isNull(), eq(PageRequest.of(2, 50)));
+    }
+
     // ── getUserById ─────────────────────────────────────────────────────────
 
     @Test
@@ -211,6 +228,21 @@ class AdminUserServiceTest {
         verify(userRepoPort, never()).save(any());
     }
 
+    @Test
+    void banUser_ShouldOverwriteBanReason_WhenAlreadyBanned() {
+        BanUserRequest request = new BanUserRequest();
+        request.setBanReason("Repeat violation");
+
+        when(userRepoPort.findById(userId)).thenReturn(Optional.of(bannedUser));
+        when(userRepoPort.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        AdminUserResponse response = adminUserService.banUser(userId, request);
+
+        assertFalse(response.isActive());
+        assertEquals("Repeat violation", response.getBanReason());
+        assertNotNull(response.getBannedAt());
+    }
+
     // ── unbanUser ────────────────────────────────────────────────────────────
 
     @Test
@@ -246,5 +278,17 @@ class AdminUserServiceTest {
         assertThrows(UserNotFoundException.class,
                 () -> adminUserService.unbanUser(unknownId));
         verify(userRepoPort, never()).save(any());
+    }
+
+    @Test
+    void unbanUser_ShouldStayActive_WhenUserAlreadyActive() {
+        when(userRepoPort.findById(userId)).thenReturn(Optional.of(activeUser));
+        when(userRepoPort.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        AdminUserResponse response = adminUserService.unbanUser(userId);
+
+        assertTrue(response.isActive());
+        assertNull(response.getBanReason());
+        assertNull(response.getBannedAt());
     }
 }
