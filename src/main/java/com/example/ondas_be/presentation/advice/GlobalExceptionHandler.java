@@ -10,6 +10,8 @@ import com.example.ondas_be.application.exception.GenreNotFoundException;
 import com.example.ondas_be.application.exception.InvalidCredentialsException;
 import com.example.ondas_be.application.exception.InvalidCurrentPasswordException;
 import com.example.ondas_be.application.exception.InvalidTokenException;
+import com.example.ondas_be.application.exception.LyricsAlreadyExistsException;
+import com.example.ondas_be.application.exception.LyricsNotFoundException;
 import com.example.ondas_be.application.exception.PlaylistAccessDeniedException;
 import com.example.ondas_be.application.exception.PlaylistNotFoundException;
 import com.example.ondas_be.application.exception.PlaylistReorderInvalidException;
@@ -18,6 +20,7 @@ import com.example.ondas_be.application.exception.PlaylistSongNotFoundException;
 import com.example.ondas_be.application.exception.PlayHistoryNotFoundException;
 import com.example.ondas_be.application.exception.SongNotFoundException;
 import com.example.ondas_be.application.exception.StorageOperationException;
+import com.example.ondas_be.application.exception.SyncedLyricsValidationException;
 import com.example.ondas_be.application.exception.UserNotFoundException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -36,6 +39,11 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(EmailAlreadyExistsException.class)
     public ResponseEntity<ApiResponse<Void>> handleEmailAlreadyExists(EmailAlreadyExistsException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.error(ex.getMessage()));
+    }
+
+    @ExceptionHandler(LyricsAlreadyExistsException.class)
+    public ResponseEntity<ApiResponse<Void>> handleLyricsAlreadyExists(LyricsAlreadyExistsException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.error(ex.getMessage()));
     }
 
@@ -72,10 +80,16 @@ public class GlobalExceptionHandler {
             PlayHistoryNotFoundException.class,
             PlaylistNotFoundException.class,
             PlaylistSongNotFoundException.class,
-            FavoriteNotFoundException.class
+            FavoriteNotFoundException.class,
+            LyricsNotFoundException.class
     })
     public ResponseEntity<ApiResponse<Void>> handleResourceNotFound(RuntimeException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error(ex.getMessage()));
+    }
+
+    @ExceptionHandler(SyncedLyricsValidationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleSyncedLyricsValidation(SyncedLyricsValidationException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(ex.getMessage()));
     }
 
     @ExceptionHandler(PlaylistSongAlreadyExistsException.class)

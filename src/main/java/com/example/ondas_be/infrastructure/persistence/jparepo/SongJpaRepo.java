@@ -13,6 +13,8 @@ import java.util.UUID;
 
 public interface SongJpaRepo extends JpaRepository<SongModel, UUID> {
 
+    boolean existsById(UUID id);
+
     boolean existsBySlug(String slug);
 
     List<SongModel> findByAlbumIdOrderByTrackNumber(UUID albumId);
