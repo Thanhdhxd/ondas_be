@@ -42,6 +42,8 @@ public interface SongRepoPort {
 
     boolean existsBySlug(String slug);
 
+    boolean existsById(UUID id);
+
     void incrementPlayCount(UUID id);
 
     List<Song> findByIds(List<UUID> ids);

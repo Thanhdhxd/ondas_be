@@ -116,6 +116,11 @@ public class SongAdapter implements SongRepoPort {
     }
 
     @Override
+    public boolean existsById(UUID id) {
+        return songJpaRepo.existsById(id);
+    }
+
+    @Override
     @Transactional
     public void incrementPlayCount(UUID id) {
         songJpaRepo.incrementPlayCount(id);

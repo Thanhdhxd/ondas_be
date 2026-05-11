@@ -6,6 +6,7 @@ import com.example.ondas_be.infrastructure.persistence.jparepo.LyricsJpaRepo;
 import com.example.ondas_be.infrastructure.persistence.model.LyricsModel;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -17,25 +18,37 @@ public class LyricsAdapter implements LyricsRepoPort {
     private final LyricsJpaRepo lyricsJpaRepo;
 
     @Override
+    public Lyrics save(Lyrics lyrics) {
+        return lyricsJpaRepo.save(LyricsModel.fromDomain(lyrics)).toDomain();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<Lyrics> findById(UUID id) {
+        return lyricsJpaRepo.findById(id).map(LyricsModel::toDomain);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public Optional<Lyrics> findBySongId(UUID songId) {
         return lyricsJpaRepo.findBySongId(songId).map(LyricsModel::toDomain);
     }
 
     @Override
-    public Lyrics save(Lyrics lyrics) {
-        LyricsModel model = LyricsModel.fromDomain(lyrics);
-        // Bảo toàn các trường auditing nếu cần
-        if (lyrics.getCreatedAt() != null) {
-            model.setCreatedAt(lyrics.getCreatedAt());
-        }
-        if (lyrics.getUpdatedAt() != null) {
-            model.setUpdatedAt(lyrics.getUpdatedAt());
-        }
-        return lyricsJpaRepo.save(model).toDomain();
+    @Transactional
+    public void updateStaticLyrics(UUID id, String plainText, String language) {
+        lyricsJpaRepo.updateStaticLyrics(id, plainText, language);
     }
 
     @Override
-    public void deleteBySongId(UUID songId) {
-        lyricsJpaRepo.deleteBySongId(songId);
+    @Transactional
+    public void updateHasSynced(UUID id, boolean hasSynced) {
+        lyricsJpaRepo.updateHasSynced(id, hasSynced);
+    }
+
+    @Override
+    @Transactional
+    public void deleteById(UUID id) {
+        lyricsJpaRepo.deleteById(id);
     }
 }

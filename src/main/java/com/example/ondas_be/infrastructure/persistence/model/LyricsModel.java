@@ -39,6 +39,9 @@ public class LyricsModel {
     @Builder.Default
     private boolean hasSynced = false;
 
+    @Column(name = "language", length = 10)
+    private String language;
+
     @Column(name = "created_by")
     private UUID createdBy;
 
@@ -59,8 +62,22 @@ public class LyricsModel {
         this.updatedAt = LocalDateTime.now();
     }
 
+    // -------------------------------------------------------
+    // Converters
+    // -------------------------------------------------------
+
     public Lyrics toDomain() {
-        return new Lyrics(id, songId, plainText, hasSynced, createdAt, updatedAt, createdBy);
+        return Lyrics.builder()
+                .id(id)
+                .songId(songId)
+                .plainText(plainText)
+                .hasSynced(hasSynced)
+                .language(language)
+                .createdBy(createdBy)
+                .createdAt(createdAt)
+                .updatedAt(updatedAt)
+                .syncedLines(null) // loaded separately
+                .build();
     }
 
     public static LyricsModel fromDomain(Lyrics lyrics) {
@@ -69,8 +86,10 @@ public class LyricsModel {
                 .songId(lyrics.getSongId())
                 .plainText(lyrics.getPlainText())
                 .hasSynced(lyrics.isHasSynced())
+                .language(lyrics.getLanguage())
                 .createdBy(lyrics.getCreatedBy())
-                // createdAt và updatedAt sẽ được map thủ công hoặc qua lifecycle methods
+                .createdAt(lyrics.getCreatedAt())
+                .updatedAt(lyrics.getUpdatedAt())
                 .build();
     }
 }
