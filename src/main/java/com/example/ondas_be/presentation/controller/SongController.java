@@ -4,9 +4,11 @@ import com.example.ondas_be.application.dto.common.ApiResponse;
 import com.example.ondas_be.application.dto.common.PageResultDto;
 import com.example.ondas_be.application.dto.request.CreateSongRequest;
 import com.example.ondas_be.application.dto.request.SongFilterRequest;
+import com.example.ondas_be.application.dto.request.SongTagRequest;
 import com.example.ondas_be.application.dto.request.UpdateSongRequest;
 import com.example.ondas_be.application.dto.response.SongResponse;
 import com.example.ondas_be.application.dto.response.SongStreamResponse;
+import com.example.ondas_be.application.dto.response.TagResponse;
 import com.example.ondas_be.application.service.port.SongServicePort;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -26,8 +28,10 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -74,6 +78,35 @@ public class SongController {
     public ResponseEntity<ApiResponse<Void>> deleteSong(@PathVariable UUID id) {
         songServicePort.deleteSong(id);
         return ResponseEntity.ok(ApiResponse.success(null));
+    }
+
+    @GetMapping("/{id}/tags")
+    public ResponseEntity<ApiResponse<List<TagResponse>>> getSongTags(@PathVariable UUID id) {
+        return ResponseEntity.ok(ApiResponse.success(songServicePort.getSongTags(id)));
+    }
+
+    @PostMapping("/{id}/tags")
+    @PreAuthorize("hasAnyRole('ADMIN','CONTENT_MANAGER')")
+    public ResponseEntity<ApiResponse<List<TagResponse>>> addSongTags(
+            @PathVariable UUID id,
+            @RequestBody SongTagRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(songServicePort.addSongTags(id, request.getTagIds())));
+    }
+
+    @DeleteMapping("/{id}/tags")
+    @PreAuthorize("hasAnyRole('ADMIN','CONTENT_MANAGER')")
+    public ResponseEntity<ApiResponse<List<TagResponse>>> removeSongTags(
+            @PathVariable UUID id,
+            @RequestBody SongTagRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(songServicePort.removeSongTags(id, request.getTagIds())));
+    }
+
+    @PutMapping("/{id}/tags")
+    @PreAuthorize("hasAnyRole('ADMIN','CONTENT_MANAGER')")
+    public ResponseEntity<ApiResponse<List<TagResponse>>> replaceSongTags(
+            @PathVariable UUID id,
+            @RequestBody SongTagRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(songServicePort.replaceSongTags(id, request.getTagIds())));
     }
 
     @GetMapping("/{id}/stream")

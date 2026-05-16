@@ -3,8 +3,10 @@ package com.example.ondas_be.integration.controller;
 import com.example.ondas_be.application.dto.common.PageResultDto;
 import com.example.ondas_be.application.dto.request.CreateSongRequest;
 import com.example.ondas_be.application.dto.request.UpdateSongRequest;
+import com.example.ondas_be.application.dto.request.SongTagRequest;
 import com.example.ondas_be.application.dto.response.SongResponse;
 import com.example.ondas_be.application.dto.response.SongStreamResponse;
+import com.example.ondas_be.application.dto.response.TagResponse;
 import com.example.ondas_be.application.exception.AlbumNotFoundException;
 import com.example.ondas_be.application.exception.ArtistNotFoundException;
 import com.example.ondas_be.application.exception.GenreNotFoundException;
@@ -42,6 +44,8 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -79,6 +83,15 @@ class SongControllerTest {
                 .active(true)
                 .build();
     }
+
+        private TagResponse buildTagResponse(Long id) {
+                return TagResponse.builder()
+                                .id(id)
+                                .name("Happy")
+                                .type("mood")
+                                .colorHex("#FF9900")
+                                .build();
+        }
 
     @Test
     @WithMockUser(roles = "ADMIN")
@@ -617,6 +630,77 @@ class SongControllerTest {
         mockMvc.perform(delete("/api/songs/{id}", UUID.randomUUID()))
                 .andExpect(status().isForbidden());
     }
+
+        @Test
+        @WithMockUser(roles = "USER")
+        void getSongTags_ShouldReturn200_WhenValid() throws Exception {
+                UUID id = UUID.randomUUID();
+                when(songServicePort.getSongTags(id)).thenReturn(List.of(buildTagResponse(1L)));
+
+                mockMvc.perform(get("/api/songs/{id}/tags", id))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.success").value(true));
+        }
+
+        @Test
+        @WithMockUser(roles = "ADMIN")
+        void addSongTags_ShouldReturn200_WhenAdmin() throws Exception {
+                UUID id = UUID.randomUUID();
+                when(songServicePort.addSongTags(eq(id), any())).thenReturn(List.of(buildTagResponse(1L)));
+
+                SongTagRequest request = new SongTagRequest();
+                request.setTagIds(List.of(1L));
+
+                mockMvc.perform(post("/api/songs/{id}/tags", id)
+                                                .contentType(MediaType.APPLICATION_JSON)
+                                                .content(objectMapper.writeValueAsBytes(request)))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.success").value(true));
+        }
+
+        @Test
+        @WithMockUser(roles = "USER")
+        void addSongTags_ShouldReturn403_WhenRoleNotAllowed() throws Exception {
+                SongTagRequest request = new SongTagRequest();
+                request.setTagIds(List.of(1L));
+
+                mockMvc.perform(post("/api/songs/{id}/tags", UUID.randomUUID())
+                                                .contentType(MediaType.APPLICATION_JSON)
+                                                .content(objectMapper.writeValueAsBytes(request)))
+                                .andExpect(status().isForbidden());
+        }
+
+        @Test
+        @WithMockUser(roles = "ADMIN")
+        void removeSongTags_ShouldReturn200_WhenAdmin() throws Exception {
+                UUID id = UUID.randomUUID();
+                when(songServicePort.removeSongTags(eq(id), any())).thenReturn(List.of());
+
+                SongTagRequest request = new SongTagRequest();
+                request.setTagIds(List.of(1L));
+
+                mockMvc.perform(delete("/api/songs/{id}/tags", id)
+                                                .contentType(MediaType.APPLICATION_JSON)
+                                                .content(objectMapper.writeValueAsBytes(request)))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.success").value(true));
+        }
+
+        @Test
+        @WithMockUser(roles = "ADMIN")
+        void replaceSongTags_ShouldReturn200_WhenAdmin() throws Exception {
+                UUID id = UUID.randomUUID();
+                when(songServicePort.replaceSongTags(eq(id), any())).thenReturn(List.of(buildTagResponse(1L)));
+
+                SongTagRequest request = new SongTagRequest();
+                request.setTagIds(List.of(1L, 2L));
+
+                mockMvc.perform(put("/api/songs/{id}/tags", id)
+                                                .contentType(MediaType.APPLICATION_JSON)
+                                                .content(objectMapper.writeValueAsBytes(request)))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.success").value(true));
+        }
 
     @Test
     @WithMockUser(roles = "USER")

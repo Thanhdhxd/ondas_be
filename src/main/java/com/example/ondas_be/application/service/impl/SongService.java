@@ -7,27 +7,33 @@ import com.example.ondas_be.application.dto.response.ArtistSummaryResponse;
 import com.example.ondas_be.application.dto.response.GenreSummaryResponse;
 import com.example.ondas_be.application.dto.response.SongResponse;
 import com.example.ondas_be.application.dto.response.SongStreamResponse;
+import com.example.ondas_be.application.dto.response.TagResponse;
 import com.example.ondas_be.application.dto.common.PageResultDto;
 import com.example.ondas_be.application.exception.AlbumNotFoundException;
 import com.example.ondas_be.application.exception.ArtistNotFoundException;
 import com.example.ondas_be.application.exception.GenreNotFoundException;
 import com.example.ondas_be.application.exception.SongNotFoundException;
 import com.example.ondas_be.application.exception.StorageOperationException;
+import com.example.ondas_be.application.exception.TagNotFoundException;
 import com.example.ondas_be.application.mapper.ArtistMapper;
 import com.example.ondas_be.application.mapper.GenreMapper;
 import com.example.ondas_be.application.mapper.SongMapper;
+import com.example.ondas_be.application.mapper.TagMapper;
 import com.example.ondas_be.application.service.port.SongServicePort;
 import com.example.ondas_be.application.service.port.StoragePort;
 import com.example.ondas_be.application.util.SlugUtil;
 import com.example.ondas_be.domain.entity.Artist;
 import com.example.ondas_be.domain.entity.Genre;
 import com.example.ondas_be.domain.entity.Song;
+import com.example.ondas_be.domain.entity.Tag;
 import com.example.ondas_be.domain.repoport.AlbumRepoPort;
 import com.example.ondas_be.domain.repoport.ArtistRepoPort;
 import com.example.ondas_be.domain.repoport.GenreRepoPort;
 import com.example.ondas_be.domain.repoport.SongArtistRepoPort;
 import com.example.ondas_be.domain.repoport.SongGenreRepoPort;
 import com.example.ondas_be.domain.repoport.SongRepoPort;
+import com.example.ondas_be.domain.repoport.SongTagRepoPort;
+import com.example.ondas_be.domain.repoport.TagRepoPort;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jaudiotagger.audio.AudioFile;
@@ -41,9 +47,11 @@ import java.io.File;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -56,12 +64,15 @@ public class SongService implements SongServicePort {
     private final ArtistRepoPort artistRepoPort;
     private final AlbumRepoPort albumRepoPort;
     private final GenreRepoPort genreRepoPort;
+    private final TagRepoPort tagRepoPort;
     private final SongArtistRepoPort songArtistRepoPort;
     private final SongGenreRepoPort songGenreRepoPort;
+    private final SongTagRepoPort songTagRepoPort;
     private final StoragePort storagePort;
     private final SongMapper songMapper;
     private final ArtistMapper artistMapper;
     private final GenreMapper genreMapper;
+    private final TagMapper tagMapper;
 
     @Value("${storage.minio.bucket-audio}")
     private String audioBucket;
@@ -289,7 +300,66 @@ public class SongService implements SongServicePort {
         deleteObject(imageBucket, song.getCoverUrl());
         songArtistRepoPort.replaceSongArtists(id, List.of());
         songGenreRepoPort.replaceSongGenres(id, List.of());
+        songTagRepoPort.replaceSongTags(id, List.of());
         songRepoPort.deleteById(id);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<TagResponse> getSongTags(UUID songId) {
+        Song song = songRepoPort.findById(songId)
+                .orElseThrow(() -> new SongNotFoundException("Song not found with id: " + songId));
+        if (!song.isActive()) {
+            throw new SongNotFoundException("Song not found with id: " + songId);
+        }
+        List<Long> tagIds = songTagRepoPort.findTagIdsBySongId(songId);
+        return fetchTagResponses(tagIds);
+    }
+
+    @Override
+    @Transactional
+    public List<TagResponse> addSongTags(UUID songId, List<Long> tagIds) {
+        if (tagIds == null || tagIds.isEmpty()) {
+            throw new IllegalArgumentException("Tag IDs are required");
+        }
+        validateTags(tagIds);
+        ensureSongExists(songId);
+
+        List<Long> existing = songTagRepoPort.findTagIdsBySongId(songId);
+        List<Long> merged = mergeIds(existing, tagIds);
+        songTagRepoPort.replaceSongTags(songId, merged);
+        return fetchTagResponses(merged);
+    }
+
+    @Override
+    @Transactional
+    public List<TagResponse> removeSongTags(UUID songId, List<Long> tagIds) {
+        if (tagIds == null || tagIds.isEmpty()) {
+            throw new IllegalArgumentException("Tag IDs are required");
+        }
+        validateTags(tagIds);
+        ensureSongExists(songId);
+
+        List<Long> existing = songTagRepoPort.findTagIdsBySongId(songId);
+        List<Long> remaining = existing.stream()
+                .filter(id -> !tagIds.contains(id))
+                .toList();
+        songTagRepoPort.replaceSongTags(songId, remaining);
+        return fetchTagResponses(remaining);
+    }
+
+    @Override
+    @Transactional
+    public List<TagResponse> replaceSongTags(UUID songId, List<Long> tagIds) {
+        if (tagIds == null) {
+            throw new IllegalArgumentException("Tag IDs are required");
+        }
+        validateTags(tagIds);
+        ensureSongExists(songId);
+
+        List<Long> merged = mergeIds(List.of(), tagIds);
+        songTagRepoPort.replaceSongTags(songId, merged);
+        return fetchTagResponses(merged);
     }
 
     private void validateArtists(List<UUID> artistIds) {
@@ -305,6 +375,20 @@ public class SongService implements SongServicePort {
             if (!genreRepoPort.existsById(genreId)) {
                 throw new GenreNotFoundException("Genre not found with id: " + genreId);
             }
+        }
+    }
+
+    private void validateTags(List<Long> tagIds) {
+        if (tagIds == null || tagIds.isEmpty()) {
+            return;
+        }
+        List<Tag> tags = tagRepoPort.findByIds(tagIds);
+        if (tags.size() != tagIds.size()) {
+            Set<Long> found = tags.stream().map(Tag::getId).collect(Collectors.toSet());
+            List<Long> missing = tagIds.stream().distinct()
+                    .filter(id -> !found.contains(id))
+                    .toList();
+            throw new TagNotFoundException("Tag not found with ids: " + missing);
         }
     }
 
@@ -342,6 +426,30 @@ public class SongService implements SongServicePort {
     private List<GenreSummaryResponse> fetchGenreSummaries(List<Long> ids) {
         if (ids == null || ids.isEmpty()) return Collections.emptyList();
         return genreMapper.toSummaryResponseList(genreRepoPort.findByIds(ids));
+    }
+
+    private List<TagResponse> fetchTagResponses(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return tagMapper.toResponseList(tagRepoPort.findByIds(ids));
+    }
+
+    private void ensureSongExists(UUID songId) {
+        if (!songRepoPort.existsById(songId)) {
+            throw new SongNotFoundException("Song not found with id: " + songId);
+        }
+    }
+
+    private List<Long> mergeIds(List<Long> existing, List<Long> incoming) {
+        LinkedHashSet<Long> merged = new LinkedHashSet<>();
+        if (existing != null) {
+            merged.addAll(existing);
+        }
+        if (incoming != null) {
+            merged.addAll(incoming);
+        }
+        return List.copyOf(merged);
     }
 
     private String buildObjectName(String prefix, String originalFilename) {
