@@ -5,22 +5,28 @@ import com.example.ondas_be.application.dto.request.SongFilterRequest;
 import com.example.ondas_be.application.dto.request.UpdateSongRequest;
 import com.example.ondas_be.application.dto.response.SongResponse;
 import com.example.ondas_be.application.dto.response.SongStreamResponse;
+import com.example.ondas_be.application.dto.response.TagResponse;
 import com.example.ondas_be.application.exception.AlbumNotFoundException;
 import com.example.ondas_be.application.exception.ArtistNotFoundException;
 import com.example.ondas_be.application.exception.GenreNotFoundException;
 import com.example.ondas_be.application.exception.SongNotFoundException;
+import com.example.ondas_be.application.exception.TagNotFoundException;
 import com.example.ondas_be.application.mapper.ArtistMapper;
 import com.example.ondas_be.application.mapper.GenreMapper;
 import com.example.ondas_be.application.mapper.SongMapper;
+import com.example.ondas_be.application.mapper.TagMapper;
 import com.example.ondas_be.application.service.impl.SongService;
 import com.example.ondas_be.application.service.port.StoragePort;
 import com.example.ondas_be.domain.entity.Song;
+import com.example.ondas_be.domain.entity.Tag;
 import com.example.ondas_be.domain.repoport.AlbumRepoPort;
 import com.example.ondas_be.domain.repoport.ArtistRepoPort;
 import com.example.ondas_be.domain.repoport.GenreRepoPort;
 import com.example.ondas_be.domain.repoport.SongArtistRepoPort;
 import com.example.ondas_be.domain.repoport.SongGenreRepoPort;
 import com.example.ondas_be.domain.repoport.SongRepoPort;
+import com.example.ondas_be.domain.repoport.SongTagRepoPort;
+import com.example.ondas_be.domain.repoport.TagRepoPort;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -68,6 +74,12 @@ class SongServiceTest {
     @Mock
     private SongGenreRepoPort songGenreRepoPort;
 
+        @Mock
+        private TagRepoPort tagRepoPort;
+
+        @Mock
+        private SongTagRepoPort songTagRepoPort;
+
     @Mock
     private StoragePort storagePort;
 
@@ -79,6 +91,9 @@ class SongServiceTest {
 
     @Mock
     private GenreMapper genreMapper;
+
+        @Mock
+        private TagMapper tagMapper;
 
     @InjectMocks
     private SongService songService;
@@ -502,6 +517,7 @@ class SongServiceTest {
                 verify(storagePort).delete("ondas-images", "cover.jpg");
                 verify(songArtistRepoPort).replaceSongArtists(songId, List.of());
                 verify(songGenreRepoPort).replaceSongGenres(songId, List.of());
+                verify(songTagRepoPort).replaceSongTags(songId, List.of());
                 verify(songRepoPort).deleteById(songId);
         }
 
@@ -613,4 +629,66 @@ class SongServiceTest {
 
                 assertThrows(SongNotFoundException.class, () -> songService.streamSong(songId, null));
         }
+
+    @Test
+    void getSongTags_WhenValid_ShouldReturnTags() {
+        UUID songId = UUID.randomUUID();
+        Song song = new Song(
+                songId,
+                "Song",
+                "song",
+                180,
+                "audio-url",
+                "mp3",
+                1000L,
+                "cover-url",
+                null,
+                1,
+                LocalDate.now(),
+                0L,
+                true,
+                null,
+                LocalDateTime.now(),
+                LocalDateTime.now(),
+                List.of(),
+                List.of()
+        );
+
+        when(songRepoPort.findById(songId)).thenReturn(java.util.Optional.of(song));
+        when(songTagRepoPort.findTagIdsBySongId(songId)).thenReturn(List.of(1L));
+        when(tagRepoPort.findByIds(List.of(1L)))
+                .thenReturn(List.of(new Tag(1L, "Happy", "mood", "#FF9900", LocalDateTime.now())));
+        when(tagMapper.toResponseList(any())).thenReturn(List.of(new TagResponse()));
+
+        List<TagResponse> result = songService.getSongTags(songId);
+
+        assertEquals(1, result.size());
+    }
+
+    @Test
+    void addSongTags_WhenMissingTag_ShouldThrowTagNotFound() {
+        UUID songId = UUID.randomUUID();
+
+        when(tagRepoPort.findByIds(List.of(1L))).thenReturn(List.of());
+
+        assertThrows(TagNotFoundException.class, () -> songService.addSongTags(songId, List.of(1L)));
+    }
+
+    @Test
+    void replaceSongTags_WhenValid_ShouldReplace() {
+        UUID songId = UUID.randomUUID();
+
+        when(songRepoPort.existsById(songId)).thenReturn(true);
+        when(tagRepoPort.findByIds(List.of(1L, 2L)))
+                .thenReturn(List.of(
+                        new Tag(1L, "Happy", "mood", "#FF9900", LocalDateTime.now()),
+                        new Tag(2L, "Calm", "mood", "#00AAFF", LocalDateTime.now())
+                ));
+        when(tagMapper.toResponseList(any())).thenReturn(List.of(new TagResponse(), new TagResponse()));
+
+        List<TagResponse> result = songService.replaceSongTags(songId, List.of(1L, 2L));
+
+        assertEquals(2, result.size());
+        verify(songTagRepoPort).replaceSongTags(songId, List.of(1L, 2L));
+    }
 }

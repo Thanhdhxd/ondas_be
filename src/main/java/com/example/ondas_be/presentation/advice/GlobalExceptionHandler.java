@@ -19,6 +19,7 @@ import com.example.ondas_be.application.exception.PlaylistSongNotFoundException;
 import com.example.ondas_be.application.exception.PlayHistoryNotFoundException;
 import com.example.ondas_be.application.exception.SongNotFoundException;
 import com.example.ondas_be.application.exception.StorageOperationException;
+import com.example.ondas_be.application.exception.TagNotFoundException;
 import com.example.ondas_be.application.exception.UserNotFoundException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -79,7 +80,8 @@ public class GlobalExceptionHandler {
             PlaylistNotFoundException.class,
             PlaylistSongNotFoundException.class,
             FavoriteNotFoundException.class,
-            LyricsNotFoundException.class
+            LyricsNotFoundException.class,
+            TagNotFoundException.class
     })
     public ResponseEntity<ApiResponse<Void>> handleResourceNotFound(RuntimeException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error(ex.getMessage()));
