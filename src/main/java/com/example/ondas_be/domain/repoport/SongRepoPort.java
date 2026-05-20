@@ -30,6 +30,10 @@ public interface SongRepoPort {
 
     long countByGenreId(Long genreId);
 
+    List<Song> findByTagIds(List<Long> tagIds, int page, int size);
+
+    long countByTagIds(List<Long> tagIds);
+
     List<Song> findByTitleContains(String query, int page, int size);
 
     long countByTitleContains(String query);

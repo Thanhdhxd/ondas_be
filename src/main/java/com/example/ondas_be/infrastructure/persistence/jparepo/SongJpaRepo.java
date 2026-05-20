@@ -35,6 +35,39 @@ public interface SongJpaRepo extends JpaRepository<SongModel, UUID> {
     @Query("select count(s) from SongModel s join SongGenreModel sg on sg.id.songId = s.id where sg.id.genreId = :genreId")
     long countByGenreId(@Param("genreId") Long genreId);
 
+        @Query(
+            value = "select s.* from songs s join song_tags st on st.song_id = s.id " +
+                "where st.tag_id in (:tagIds) " +
+                "group by s.id " +
+                "having count(distinct st.tag_id) = :tagCount",
+            countQuery = "select count(*) from (" +
+                "select s.id from songs s join song_tags st on st.song_id = s.id " +
+                "where st.tag_id in (:tagIds) " +
+                "group by s.id " +
+                "having count(distinct st.tag_id) = :tagCount" +
+                ") x",
+            nativeQuery = true
+        )
+        Page<SongModel> findByTagIds(
+            @Param("tagIds") List<Long> tagIds,
+            @Param("tagCount") long tagCount,
+            Pageable pageable
+        );
+
+        @Query(
+            value = "select count(*) from (" +
+                "select s.id from songs s join song_tags st on st.song_id = s.id " +
+                "where st.tag_id in (:tagIds) " +
+                "group by s.id " +
+                "having count(distinct st.tag_id) = :tagCount" +
+                ") x",
+            nativeQuery = true
+        )
+        long countByTagIds(
+            @Param("tagIds") List<Long> tagIds,
+            @Param("tagCount") long tagCount
+        );
+
         @Query(value = "select * from songs s where s.title ilike concat('%', :query, '%')",
             countQuery = "select count(*) from songs s where s.title ilike concat('%', :query, '%')",
             nativeQuery = true)

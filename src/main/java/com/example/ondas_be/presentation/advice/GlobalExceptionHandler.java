@@ -19,6 +19,10 @@ import com.example.ondas_be.application.exception.PlaylistSongNotFoundException;
 import com.example.ondas_be.application.exception.PlayHistoryNotFoundException;
 import com.example.ondas_be.application.exception.SongNotFoundException;
 import com.example.ondas_be.application.exception.StorageOperationException;
+import com.example.ondas_be.application.exception.SystemPlaylistNotFoundException;
+import com.example.ondas_be.application.exception.SystemPlaylistReorderInvalidException;
+import com.example.ondas_be.application.exception.SystemPlaylistSongAlreadyExistsException;
+import com.example.ondas_be.application.exception.SystemPlaylistSongNotFoundException;
 import com.example.ondas_be.application.exception.TagNotFoundException;
 import com.example.ondas_be.application.exception.UserNotFoundException;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -79,6 +83,8 @@ public class GlobalExceptionHandler {
             PlayHistoryNotFoundException.class,
             PlaylistNotFoundException.class,
             PlaylistSongNotFoundException.class,
+            SystemPlaylistNotFoundException.class,
+            SystemPlaylistSongNotFoundException.class,
             FavoriteNotFoundException.class,
             LyricsNotFoundException.class,
             TagNotFoundException.class
@@ -102,6 +108,11 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.error(ex.getMessage()));
     }
 
+    @ExceptionHandler(SystemPlaylistSongAlreadyExistsException.class)
+    public ResponseEntity<ApiResponse<Void>> handleSystemPlaylistConflict(SystemPlaylistSongAlreadyExistsException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.error(ex.getMessage()));
+    }
+
     @ExceptionHandler(FavoriteAlreadyExistsException.class)
     public ResponseEntity<ApiResponse<Void>> handleFavoriteAlreadyExists(FavoriteAlreadyExistsException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.error(ex.getMessage()));
@@ -114,6 +125,11 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(PlaylistReorderInvalidException.class)
     public ResponseEntity<ApiResponse<Void>> handlePlaylistReorderInvalid(PlaylistReorderInvalidException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(ex.getMessage()));
+    }
+
+    @ExceptionHandler(SystemPlaylistReorderInvalidException.class)
+    public ResponseEntity<ApiResponse<Void>> handleSystemPlaylistReorderInvalid(SystemPlaylistReorderInvalidException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(ex.getMessage()));
     }
 

@@ -237,6 +237,10 @@ public class SongService implements SongServicePort {
                 songs = songRepoPort.findByTitleContains(filter.getQuery(), page, size);
                 total = songRepoPort.countByTitleContains(filter.getQuery());
             }
+        } else if (filter.getTagIds() != null && !filter.getTagIds().isEmpty()) {
+            validateTags(filter.getTagIds());
+            songs = songRepoPort.findByTagIds(filter.getTagIds(), page, size);
+            total = songRepoPort.countByTagIds(filter.getTagIds());
         } else if (filter.getArtistId() != null) {
             if (!artistRepoPort.existsById(filter.getArtistId())) {
                 throw new ArtistNotFoundException("Artist not found with id: " + filter.getArtistId());
