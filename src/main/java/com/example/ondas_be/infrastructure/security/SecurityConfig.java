@@ -78,6 +78,8 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/stream-test.html").permitAll()
+                // Allow content managers to manage system playlists only
+                .requestMatchers("/api/admin/system-playlists/**").hasAnyRole("ADMIN", "CONTENT_MANAGER")
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 .anyRequest().authenticated()
             )

@@ -82,6 +82,26 @@ public class SongAdapter implements SongRepoPort {
     }
 
     @Override
+    public List<Song> findByTagIds(List<Long> tagIds, int page, int size) {
+        long tagCount = tagIds == null ? 0 : tagIds.stream().distinct().count();
+        if (tagCount == 0) {
+            return List.of();
+        }
+        return songJpaRepo.findByTagIds(tagIds, tagCount, PageRequest.of(page, size))
+                .map(SongModel::toDomain)
+                .toList();
+    }
+
+    @Override
+    public long countByTagIds(List<Long> tagIds) {
+        long tagCount = tagIds == null ? 0 : tagIds.stream().distinct().count();
+        if (tagCount == 0) {
+            return 0;
+        }
+        return songJpaRepo.countByTagIds(tagIds, tagCount);
+    }
+
+    @Override
     public List<Song> findByTitleContains(String query, int page, int size) {
         return songJpaRepo.findByTitleContains(query, PageRequest.of(page, size))
                 .map(SongModel::toDomain)
