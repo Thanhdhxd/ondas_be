@@ -41,7 +41,7 @@ src/main/java/com/example/ondas/
 
 src/test/java/com/example/ondas/
 ├── unit/service/                  # Unit test — Service
-└── integration/controller/        # Integration test — Controller
+└── integration
 ```
 
 ---
@@ -438,10 +438,9 @@ spring:
 
 ### Phạm vi
 
-| Layer | Loại test | Mức độ |
+| Layer / Luồng | Loại test | Mức độ |
 |---|---|---|
 | `Service` | Unit test (mock `*RepoPort`) | **Bắt buộc** |
-| `Controller` | Integration test (`@WebMvcTest`) | **Nên có** |
 | `Adapter` / `JpaRepo` | — | Không cần |
 
 ### Unit Test — Service
@@ -470,29 +469,6 @@ class SongServiceTest {
         when(artistRepoPort.existsById(99L)).thenReturn(false);
         assertThrows(NotFoundException.class, () -> songService.createSong(buildRequest()));
         verify(songRepoPort, never()).save(any());
-    }
-}
-```
-
-### Integration Test — Controller
-
-```java
-@WebMvcTest(SongController.class)
-class SongControllerTest {
-    @Autowired private MockMvc mockMvc;
-    @MockBean private SongServicePort songServicePort;
-
-    @Test
-    void createSong_ShouldReturn201_WhenRequestValid() throws Exception {
-        when(songServicePort.createSong(any())).thenReturn(new SongResponse(1L, "Test", 1L, 210));
-
-        mockMvc.perform(post("/api/songs")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("""
-                    { "title": "Test", "artistId": 1, "genreId": 2, "durationSeconds": 210 }
-                """))
-            .andExpect(status().isCreated())
-            .andExpect(jsonPath("$.success").value(true));
     }
 }
 ```

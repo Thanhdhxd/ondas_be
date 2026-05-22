@@ -77,6 +77,7 @@ public class SecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**").permitAll()
+                .requestMatchers("/api/e2e/storage/**").permitAll()
                 .requestMatchers("/stream-test.html").permitAll()
                 // Allow content managers to manage system playlists only
                 .requestMatchers("/api/admin/system-playlists/**").hasAnyRole("ADMIN", "CONTENT_MANAGER")

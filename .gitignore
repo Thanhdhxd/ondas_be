@@ -39,3 +39,4 @@ build/
 schema.sql
 
 STREAM_API.md
+main_flows.md

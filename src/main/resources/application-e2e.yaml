@@ -1,0 +1,62 @@
+spring:
+  config:
+    activate:
+      on-profile: e2e
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:5433/ondas_e2e
+    username: ${POSTGRES_USER:ondas_user}
+    password: ${POSTGRES_PASSWORD:ondas_password}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+  mail:
+    host: localhost
+    port: 25
+    username: e2e
+    password: e2e
+  servlet:
+    multipart:
+      max-file-size: 100MB
+      max-request-size: 120MB
+
+storage:
+  minio:
+    endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
+    access-key: ${MINIO_ACCESS_KEY:minioadmin}
+    secret-key: ${MINIO_SECRET_KEY:minioadmin}
+    bucket-audio: ${MINIO_BUCKET_AUDIO:ondas-audio}
+    bucket-image: ${MINIO_BUCKET_IMAGE:ondas-images}
+
+jwt:
+  secret: e2e-only-secret-key-change-in-production
+  expiration: 86400000
+  refresh-expiration: 604800000
+  password-reset-expiration: 60000
+
+app:
+  base-url: ${APP_BASE_URL:http://localhost:8080}
+  mail:
+    from: ${MAIL_FROM:noreply@ondas.app}
+  google:
+    client-id: ${GOOGLE_CLIENT_ID:}
+  e2e:
+    seed-script: classpath:e2e/seed-e2e.sql
+    seed-password: E2ePass123!
+    seed-on-startup: true
+    reset-on-startup: true
+    storage-path: /api/e2e/storage
+
+cors:
+  allowed-origin-patterns: http://localhost:*,http://127.0.0.1:*
+
+server:
+  port: 8080
+
+logging:
+  level:
+    com.example.ondas_be: INFO
