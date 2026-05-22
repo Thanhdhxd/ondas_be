@@ -1695,6 +1695,40 @@ Unban một user.
 
 ---
 
+## E2E (profile e2e)
+
+> Chỉ khả dụng khi chạy với `SPRING_PROFILES_ACTIVE=e2e`.
+
+### POST `/api/admin/e2e/reset`
+
+Reset toàn bộ dữ liệu và seed lại dữ liệu mẫu phục vụ e2e.
+
+**Auth:** ✅ `ADMIN`
+
+**Response `200 OK`:**
+```json
+{ "success": true, "message": "OK", "data": null }
+```
+
+---
+
+### POST `/api/admin/e2e/seed`
+
+Seed dữ liệu nếu DB đang trống (không reset).
+
+**Auth:** ✅ `ADMIN`
+
+**Response `200 OK`:**
+```json
+{ "success": true, "message": "OK", "data": null }
+```
+
+**Tài khoản seed mặc định:**
+- `admin@e2e.local` / `E2ePass123!`
+- `user@e2e.local` / `E2ePass123!`
+
+---
+
 ## Phân quyền
 
 | Role | Mô tả |
