@@ -6,6 +6,7 @@ import com.example.ondas_be.application.dto.response.FavoriteSongResponse;
 import com.example.ondas_be.application.service.port.FavoriteServicePort;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -21,6 +22,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/favorites")
 @RequiredArgsConstructor
+@PreAuthorize("hasAnyRole('USER','ADMIN')")
 public class FavoriteController {
 
     private final FavoriteServicePort favoriteServicePort;

@@ -13,7 +13,7 @@ public interface ArtistJpaRepo extends JpaRepository<ArtistModel, UUID> {
 
     boolean existsBySlug(String slug);
 
-    @Query(value = "select * from artists a where a.name ilike concat('%', :query, '%')",
+    @Query(value = "select * from artists a where a.name ilike concat('%', :query, '%') order by lower(a.name), a.id",
         countQuery = "select count(*) from artists a where a.name ilike concat('%', :query, '%')",
         nativeQuery = true)
     Page<ArtistModel> findByNameContains(@Param("query") String query, Pageable pageable);

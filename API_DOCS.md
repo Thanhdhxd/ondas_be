@@ -82,8 +82,8 @@ Mọi API đều trả về cấu trúc `ApiResponse<T>`:
 | Field | Type | Bắt buộc | Mô tả |
 |---|---|---|---|
 | `email` | string | ✅ | Email hợp lệ, tối đa 255 ký tự |
-| `password` | string | ✅ | Tối thiểu 8 ký tự |
-| `displayName` | string | ✅ | Tối đa 100 ký tự |
+| `password` | string | ✅ | Tối thiểu 6 ký tự |
+| `displayName` | string | ✅ | 2–100 ký tự |
 
 ```json
 {

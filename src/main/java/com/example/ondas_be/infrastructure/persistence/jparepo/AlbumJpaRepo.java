@@ -13,7 +13,7 @@ public interface AlbumJpaRepo extends JpaRepository<AlbumModel, UUID> {
 
     boolean existsBySlug(String slug);
 
-    @Query(value = "select * from albums a where a.title ilike concat('%', :query, '%')",
+    @Query(value = "select * from albums a where a.title ilike concat('%', :query, '%') order by lower(a.title), a.id",
         countQuery = "select count(*) from albums a where a.title ilike concat('%', :query, '%')",
         nativeQuery = true)
     Page<AlbumModel> findByTitleContains(@Param("query") String query, Pageable pageable);

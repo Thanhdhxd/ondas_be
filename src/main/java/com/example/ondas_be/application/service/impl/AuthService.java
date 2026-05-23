@@ -7,6 +7,7 @@ import com.example.ondas_be.application.dto.request.RefreshTokenRequest;
 import com.example.ondas_be.application.dto.request.ResetPasswordRequest;
 import com.example.ondas_be.application.dto.request.RegisterRequest;
 import com.example.ondas_be.application.dto.response.AuthResponse;
+import com.example.ondas_be.application.exception.AccountLockedException;
 import com.example.ondas_be.application.exception.EmailAlreadyExistsException;
 import com.example.ondas_be.application.exception.InvalidCredentialsException;
 import com.example.ondas_be.application.exception.InvalidTokenException;
@@ -32,6 +33,8 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -46,7 +49,10 @@ public class AuthService implements AuthServicePort {
     private static final String INVALID_CREDENTIALS_MESSAGE = "Invalid credentials";
     private static final String INVALID_REFRESH_TOKEN_MESSAGE = "Invalid refresh token";
     private static final String INVALID_OTP_MESSAGE = "Invalid or expired OTP";
+    private static final String ACCOUNT_LOCKED_MESSAGE = INVALID_CREDENTIALS_MESSAGE;
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+
+    private final Map<String, LoginAttemptState> loginAttempts = new ConcurrentHashMap<>();
 
     private final UserRepoPort userRepoPort;
     private final RefreshTokenRepoPort refreshTokenRepoPort;
@@ -58,6 +64,15 @@ public class AuthService implements AuthServicePort {
 
     @Value("${jwt.password-reset-expiration:60000}")
     private long passwordResetExpirationMs;
+
+    @Value("${auth.login.max-failed-attempts:5}")
+    private int maxFailedAttempts = 5;
+
+    @Value("${auth.login.failure-window-minutes:15}")
+    private long failureWindowMinutes = 15;
+
+    @Value("${auth.login.lock-minutes:15}")
+    private long lockMinutes = 15;
 
     @Override
     @Transactional
@@ -90,18 +105,26 @@ public class AuthService implements AuthServicePort {
     @Transactional
     public AuthResponse login(LoginRequest request) {
         String normalizedEmail = normalizeEmail(request.getEmail());
-        User existingUser = userRepoPort.findByEmail(normalizedEmail)
-                .orElseThrow(() -> new InvalidCredentialsException(INVALID_CREDENTIALS_MESSAGE));
+        ensureNotLocked(normalizedEmail);
 
-        if (!existingUser.isActive()) {
+        User existingUser = userRepoPort.findByEmail(normalizedEmail)
+                .orElseThrow(() -> {
+                    recordFailedLogin(normalizedEmail);
+                    return new InvalidCredentialsException(INVALID_CREDENTIALS_MESSAGE);
+                });
+
+        if (!existingUser.isActive() || existingUser.isBanned()) {
+            recordFailedLogin(normalizedEmail);
             throw new InvalidCredentialsException(INVALID_CREDENTIALS_MESSAGE);
         }
 
         String passwordHash = existingUser.getPasswordHash();
         if (passwordHash == null || !passwordEncoder.matches(request.getPassword(), passwordHash)) {
+            recordFailedLogin(normalizedEmail);
             throw new InvalidCredentialsException(INVALID_CREDENTIALS_MESSAGE);
         }
 
+        resetLoginAttempts(normalizedEmail);
         User userWithLastLoginUpdated = updateLastLogin(existingUser);
         return issueTokenPair(userWithLastLoginUpdated);
     }
@@ -273,5 +296,71 @@ public class AuthService implements AuthServicePort {
 
     private String normalizeDisplayName(String displayName) {
         return displayName.trim();
+    }
+
+    private void ensureNotLocked(String email) {
+        LoginAttemptState state = loginAttempts.get(email);
+        if (state == null) {
+            return;
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        synchronized (state) {
+            if (state.lockedUntil == null) {
+                return;
+            }
+            if (state.lockedUntil.isAfter(now)) {
+                throw new AccountLockedException(ACCOUNT_LOCKED_MESSAGE);
+            }
+        }
+
+        loginAttempts.remove(email);
+    }
+
+    private void recordFailedLogin(String email) {
+        // Chống brute force: theo dõi số lần sai và khóa tạm thời.
+        if (maxFailedAttempts <= 0) {
+            return;
+        }
+
+        LoginAttemptState state = loginAttempts.computeIfAbsent(email, key -> new LoginAttemptState());
+        LocalDateTime now = LocalDateTime.now();
+
+        synchronized (state) {
+            if (state.lockedUntil != null) {
+                if (state.lockedUntil.isAfter(now)) {
+                    throw new AccountLockedException(ACCOUNT_LOCKED_MESSAGE);
+                }
+                resetState(state);
+            }
+
+            if (state.lastFailedAt == null || state.lastFailedAt.isBefore(now.minusMinutes(failureWindowMinutes))) {
+                state.failedAttempts = 0;
+            }
+
+            state.failedAttempts++;
+            state.lastFailedAt = now;
+
+            if (state.failedAttempts >= maxFailedAttempts) {
+                state.lockedUntil = now.plusMinutes(lockMinutes);
+                throw new AccountLockedException(ACCOUNT_LOCKED_MESSAGE);
+            }
+        }
+    }
+
+    private void resetLoginAttempts(String email) {
+        loginAttempts.remove(email);
+    }
+
+    private void resetState(LoginAttemptState state) {
+        state.failedAttempts = 0;
+        state.lastFailedAt = null;
+        state.lockedUntil = null;
+    }
+
+    private static final class LoginAttemptState {
+        private int failedAttempts;
+        private LocalDateTime lastFailedAt;
+        private LocalDateTime lockedUntil;
     }
 }
