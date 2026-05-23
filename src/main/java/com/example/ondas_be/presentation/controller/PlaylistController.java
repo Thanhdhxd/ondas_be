@@ -42,7 +42,7 @@ public class PlaylistController {
             @AuthenticationPrincipal UserDetails userDetails,
             @Valid @RequestPart("data") CreatePlaylistRequest request,
             @RequestPart(value = "cover", required = false) MultipartFile coverFile) {
-        PlaylistResponse response = playlistServicePort.createPlaylist(userDetails.getUsername(), request, coverFile);
+        PlaylistResponse response = playlistServicePort.createPlaylist(extractEmail(userDetails), request, coverFile);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(response));
     }
 
@@ -50,9 +50,9 @@ public class PlaylistController {
     public ResponseEntity<ApiResponse<PlaylistResponse>> updatePlaylist(
             @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable UUID id,
-            @RequestPart("data") UpdatePlaylistRequest request,
+            @Valid @RequestPart("data") UpdatePlaylistRequest request,
             @RequestPart(value = "cover", required = false) MultipartFile coverFile) {
-        PlaylistResponse response = playlistServicePort.updatePlaylist(userDetails.getUsername(), id, request, coverFile);
+        PlaylistResponse response = playlistServicePort.updatePlaylist(extractEmail(userDetails), id, request, coverFile);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
@@ -76,7 +76,7 @@ public class PlaylistController {
     public ResponseEntity<ApiResponse<Void>> deletePlaylist(
             @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable UUID id) {
-        playlistServicePort.deletePlaylist(userDetails.getUsername(), id);
+        playlistServicePort.deletePlaylist(extractEmail(userDetails), id);
         return ResponseEntity.ok(ApiResponse.success(null));
     }
 
@@ -85,7 +85,7 @@ public class PlaylistController {
             @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable UUID id,
             @Valid @RequestBody AddSongToPlaylistRequest request) {
-        PlaylistResponse response = playlistServicePort.addSongToPlaylist(userDetails.getUsername(), id, request);
+        PlaylistResponse response = playlistServicePort.addSongToPlaylist(extractEmail(userDetails), id, request);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
@@ -94,7 +94,7 @@ public class PlaylistController {
             @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable UUID id,
             @PathVariable UUID songId) {
-        PlaylistResponse response = playlistServicePort.removeSongFromPlaylist(userDetails.getUsername(), id, songId);
+        PlaylistResponse response = playlistServicePort.removeSongFromPlaylist(extractEmail(userDetails), id, songId);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
@@ -103,7 +103,7 @@ public class PlaylistController {
             @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable UUID id,
             @Valid @RequestBody ReorderPlaylistSongsRequest request) {
-        PlaylistResponse response = playlistServicePort.reorderPlaylistSongs(userDetails.getUsername(), id, request);
+        PlaylistResponse response = playlistServicePort.reorderPlaylistSongs(extractEmail(userDetails), id, request);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 

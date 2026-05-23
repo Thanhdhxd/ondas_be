@@ -6,6 +6,7 @@ import com.example.ondas_be.application.dto.request.CreatePlaylistRequest;
 import com.example.ondas_be.application.dto.request.PlaylistFilterRequest;
 import com.example.ondas_be.application.dto.request.ReorderPlaylistSongsRequest;
 import com.example.ondas_be.application.dto.request.UpdatePlaylistRequest;
+import com.example.ondas_be.application.dto.response.ArtistSummaryResponse;
 import com.example.ondas_be.application.dto.response.PlaylistResponse;
 import com.example.ondas_be.application.dto.response.PlaylistSongInfoResponse;
 import com.example.ondas_be.application.dto.response.PlaylistSongResponse;
@@ -18,15 +19,19 @@ import com.example.ondas_be.application.exception.PlaylistSongNotFoundException;
 import com.example.ondas_be.application.exception.SongNotFoundException;
 import com.example.ondas_be.application.exception.StorageOperationException;
 import com.example.ondas_be.application.exception.UserNotFoundException;
+import com.example.ondas_be.application.mapper.ArtistMapper;
 import com.example.ondas_be.application.mapper.PlaylistMapper;
 import com.example.ondas_be.application.service.port.PlaylistServicePort;
 import com.example.ondas_be.application.service.port.StoragePort;
+import com.example.ondas_be.domain.entity.Artist;
 import com.example.ondas_be.domain.entity.Playlist;
 import com.example.ondas_be.domain.entity.PlaylistSong;
 import com.example.ondas_be.domain.entity.Song;
 import com.example.ondas_be.domain.entity.User;
+import com.example.ondas_be.domain.repoport.ArtistRepoPort;
 import com.example.ondas_be.domain.repoport.PlaylistRepoPort;
 import com.example.ondas_be.domain.repoport.PlaylistSongRepoPort;
+import com.example.ondas_be.domain.repoport.SongArtistRepoPort;
 import com.example.ondas_be.domain.repoport.SongRepoPort;
 import com.example.ondas_be.domain.repoport.UserRepoPort;
 import lombok.RequiredArgsConstructor;
@@ -37,9 +42,11 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -48,12 +55,17 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class PlaylistService implements PlaylistServicePort {
 
+    private static final int PLAYLIST_NAME_MAX_LENGTH = 100;
+
     private final PlaylistRepoPort playlistRepoPort;
     private final PlaylistSongRepoPort playlistSongRepoPort;
     private final SongRepoPort songRepoPort;
+    private final SongArtistRepoPort songArtistRepoPort;
+    private final ArtistRepoPort artistRepoPort;
     private final UserRepoPort userRepoPort;
     private final StoragePort storagePort;
     private final PlaylistMapper playlistMapper;
+    private final ArtistMapper artistMapper;
 
     @Value("${storage.minio.bucket-image}")
     private String imageBucket;
@@ -62,11 +74,12 @@ public class PlaylistService implements PlaylistServicePort {
     @Transactional
     public PlaylistResponse createPlaylist(String email, CreatePlaylistRequest request, MultipartFile coverFile) {
         User user = resolveUser(email);
+        String name = normalizeName(request.getName());
 
         Playlist playlist = new Playlist(
                 null,
                 user.getId(),
-                request.getName().trim(),
+                name,
                 request.getDescription(),
                 uploadOptionalImage(coverFile, "playlists/cover/"),
                 Boolean.TRUE.equals(request.getIsPublic()),
@@ -84,6 +97,8 @@ public class PlaylistService implements PlaylistServicePort {
     public PlaylistResponse updatePlaylist(String email, UUID id, UpdatePlaylistRequest request, MultipartFile coverFile) {
         Playlist existing = ensureOwner(email, id);
 
+        String updatedName = request.getName() != null ? normalizeName(request.getName()) : existing.getName();
+
         String coverUrl = existing.getCoverUrl();
         if (coverFile != null && !coverFile.isEmpty()) {
             coverUrl = uploadOptionalImage(coverFile, "playlists/cover/");
@@ -93,7 +108,7 @@ public class PlaylistService implements PlaylistServicePort {
         Playlist updated = new Playlist(
                 existing.getId(),
                 existing.getUserId(),
-                request.getName() != null ? request.getName().trim() : existing.getName(),
+                updatedName,
                 request.getDescription() != null ? request.getDescription() : existing.getDescription(),
                 coverUrl,
                 request.getIsPublic() != null ? request.getIsPublic() : existing.isPublic(),
@@ -272,14 +287,31 @@ public class PlaylistService implements PlaylistServicePort {
         Map<UUID, Song> songMap = songRepoPort.findByIds(songIds).stream()
                 .collect(Collectors.toMap(Song::getId, Function.identity()));
 
-        return playlistSongs.stream().map(item -> PlaylistSongResponse.builder()
+        Map<UUID, List<UUID>> artistIdsBySong = songArtistRepoPort.findArtistIdsBySongIds(songIds);
+        List<UUID> allArtistIds = artistIdsBySong.values().stream()
+            .flatMap(List::stream)
+            .distinct()
+            .toList();
+        Map<UUID, ArtistSummaryResponse> artistById = artistRepoPort.findByIds(allArtistIds).stream()
+            .collect(Collectors.toMap(Artist::getId, artistMapper::toSummaryResponse));
+
+        return playlistSongs.stream().map(item -> {
+            List<ArtistSummaryResponse> artists = artistIdsBySong
+                .getOrDefault(item.getSongId(), Collections.emptyList())
+                .stream()
+                .map(artistById::get)
+                .filter(Objects::nonNull)
+                .toList();
+
+            return PlaylistSongResponse.builder()
                 .position(item.getPosition())
                 .addedAt(item.getAddedAt())
-                .song(toSongInfo(songMap.get(item.getSongId())))
-                .build()).toList();
+                .song(toSongInfo(songMap.get(item.getSongId()), artists))
+                .build();
+        }).toList();
     }
 
-    private PlaylistSongInfoResponse toSongInfo(Song song) {
+        private PlaylistSongInfoResponse toSongInfo(Song song, List<ArtistSummaryResponse> artists) {
         if (song == null) {
             return null;
         }
@@ -289,6 +321,7 @@ public class PlaylistService implements PlaylistServicePort {
                 .coverUrl(song.getCoverUrl())
                 .durationSeconds(song.getDurationSeconds())
                 .audioUrl(song.getAudioUrl())
+            .artists(artists)
                 .build();
     }
 
@@ -344,5 +377,19 @@ public class PlaylistService implements PlaylistServicePort {
             return "";
         }
         return originalFilename.substring(originalFilename.lastIndexOf('.')).toLowerCase();
+    }
+
+    private String normalizeName(String name) {
+        if (name == null) {
+            throw new IllegalArgumentException("Name is required");
+        }
+        String trimmed = name.trim();
+        if (trimmed.isEmpty()) {
+            throw new IllegalArgumentException("Name is required");
+        }
+        if (trimmed.length() > PLAYLIST_NAME_MAX_LENGTH) {
+            throw new IllegalArgumentException("Name must not exceed " + PLAYLIST_NAME_MAX_LENGTH + " characters");
+        }
+        return trimmed;
     }
 }

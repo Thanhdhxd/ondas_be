@@ -35,7 +35,7 @@ public interface SongJpaRepo extends JpaRepository<SongModel, UUID> {
     @Query("select count(s) from SongModel s join SongGenreModel sg on sg.id.songId = s.id where sg.id.genreId = :genreId")
     long countByGenreId(@Param("genreId") Long genreId);
 
-        @Query(value = "select * from songs s where s.title ilike concat('%', :query, '%')",
+        @Query(value = "select * from songs s where s.title ilike concat('%', :query, '%') order by lower(s.title), s.id",
             countQuery = "select count(*) from songs s where s.title ilike concat('%', :query, '%')",
             nativeQuery = true)
         Page<SongModel> findByTitleContains(@Param("query") String query, Pageable pageable);

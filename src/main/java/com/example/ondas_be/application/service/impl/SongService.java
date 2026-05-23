@@ -533,7 +533,14 @@ public class SongService implements SongServicePort {
             throw new SongNotFoundException("Song not found with id: " + id);
         }
 
+        if (song.getAudioUrl() == null || song.getAudioUrl().isBlank()) {
+            throw new SongNotFoundException("Audio source not found for song id: " + id);
+        }
+
         String objectName = storagePort.extractObjectName(audioBucket, song.getAudioUrl());
+        if (objectName == null || objectName.isBlank()) {
+            throw new SongNotFoundException("Audio source not found for song id: " + id);
+        }
         long totalSize = song.getAudioSizeBytes() != null ? song.getAudioSizeBytes() : -1L;
         String contentType = resolveContentType(song.getAudioFormat());
 

@@ -6,6 +6,7 @@ import com.example.ondas_be.infrastructure.persistence.jparepo.PlaylistJpaRepo;
 import com.example.ondas_be.infrastructure.persistence.model.PlaylistModel;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -30,12 +31,13 @@ public class PlaylistAdapter implements PlaylistRepoPort {
 
     @Override
     public List<Playlist> findPublic(String query, int page, int size) {
+        PageRequest pageRequest = buildPageRequest(page, size);
         if (query != null && !query.isBlank()) {
-            return playlistJpaRepo.findByIsPublicTrueAndNameContainingIgnoreCase(query.trim(), PageRequest.of(page, size))
+            return playlistJpaRepo.findByIsPublicTrueAndNameContainingIgnoreCase(query.trim(), pageRequest)
                     .map(PlaylistModel::toDomain)
                     .toList();
         }
-        return playlistJpaRepo.findByIsPublicTrue(PageRequest.of(page, size)).map(PlaylistModel::toDomain).toList();
+        return playlistJpaRepo.findByIsPublicTrue(pageRequest).map(PlaylistModel::toDomain).toList();
     }
 
     @Override
@@ -49,28 +51,29 @@ public class PlaylistAdapter implements PlaylistRepoPort {
     @Override
     public List<Playlist> findByUserId(UUID userId, Boolean isPublic, String query, int page, int size) {
         boolean hasQuery = query != null && !query.isBlank();
+        PageRequest pageRequest = buildPageRequest(page, size);
         if (isPublic != null && hasQuery) {
             return playlistJpaRepo.findByUserIdAndIsPublicAndNameContainingIgnoreCase(
                     userId,
                     isPublic,
                     query.trim(),
-                    PageRequest.of(page, size)
+                    pageRequest
             ).map(PlaylistModel::toDomain).toList();
         }
 
         if (isPublic != null) {
-            return playlistJpaRepo.findByUserIdAndIsPublic(userId, isPublic, PageRequest.of(page, size))
+            return playlistJpaRepo.findByUserIdAndIsPublic(userId, isPublic, pageRequest)
                     .map(PlaylistModel::toDomain)
                     .toList();
         }
 
         if (hasQuery) {
-            return playlistJpaRepo.findByUserIdAndNameContainingIgnoreCase(userId, query.trim(), PageRequest.of(page, size))
+            return playlistJpaRepo.findByUserIdAndNameContainingIgnoreCase(userId, query.trim(), pageRequest)
                     .map(PlaylistModel::toDomain)
                     .toList();
         }
 
-        return playlistJpaRepo.findByUserId(userId, PageRequest.of(page, size)).map(PlaylistModel::toDomain).toList();
+        return playlistJpaRepo.findByUserId(userId, pageRequest).map(PlaylistModel::toDomain).toList();
     }
 
     @Override
@@ -91,5 +94,9 @@ public class PlaylistAdapter implements PlaylistRepoPort {
     @Override
     public void deleteById(UUID id) {
         playlistJpaRepo.deleteById(id);
+    }
+
+    private PageRequest buildPageRequest(int page, int size) {
+        return PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "updatedAt"));
     }
 }

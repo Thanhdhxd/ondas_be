@@ -1,6 +1,7 @@
 package com.example.ondas_be.presentation.advice;
 
 import com.example.ondas_be.application.dto.common.ApiResponse;
+import com.example.ondas_be.application.exception.AccountLockedException;
 import com.example.ondas_be.application.exception.AlbumNotFoundException;
 import com.example.ondas_be.application.exception.ArtistNotFoundException;
 import com.example.ondas_be.application.exception.EmailAlreadyExistsException;
@@ -24,6 +25,7 @@ import com.example.ondas_be.application.exception.UserNotFoundException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
@@ -34,7 +36,10 @@ import org.springframework.web.multipart.support.MissingServletRequestPartExcept
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import com.fasterxml.jackson.databind.exc.InvalidFormatException;
 
+import java.util.Objects;
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 @RestControllerAdvice
@@ -48,12 +53,17 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ApiResponse<Void>> handleDataIntegrityViolation(DataIntegrityViolationException ex) {
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.error("Email already exists"));
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.error(resolveDataIntegrityMessage(ex)));
     }
 
     @ExceptionHandler(InvalidCredentialsException.class)
     public ResponseEntity<ApiResponse<Void>> handleInvalidCredentials(InvalidCredentialsException ex) {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponse.error(ex.getMessage()));
+    }
+
+    @ExceptionHandler(AccountLockedException.class)
+    public ResponseEntity<ApiResponse<Void>> handleAccountLocked(AccountLockedException ex) {
+        return ResponseEntity.status(HttpStatus.LOCKED).body(ApiResponse.error(ex.getMessage()));
     }
 
     @ExceptionHandler(InvalidCurrentPasswordException.class)
@@ -138,6 +148,12 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error("Invalid parameter"));
     }
 
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMessageNotReadable(HttpMessageNotReadableException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error(resolveMessageNotReadable(ex)));
+    }
+
     @ExceptionHandler(MissingServletRequestPartException.class)
     public ResponseEntity<ApiResponse<Void>> handleMissingPart(MissingServletRequestPartException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
@@ -165,5 +181,39 @@ public class GlobalExceptionHandler {
 
     private String buildValidationMessage(FieldError fieldError) {
         return fieldError.getField() + ": " + fieldError.getDefaultMessage();
+    }
+
+    private String resolveDataIntegrityMessage(DataIntegrityViolationException ex) {
+        String rawMessage = ex.getMostSpecificCause() != null
+                ? ex.getMostSpecificCause().getMessage()
+                : ex.getMessage();
+        if (rawMessage == null) {
+            return "Conflict";
+        }
+
+        String normalized = rawMessage.toLowerCase(Locale.ROOT);
+        if (normalized.contains("favorites")) {
+            return "Song is already in favorites";
+        }
+        if (normalized.contains("users") && normalized.contains("email")) {
+            return "Email already exists";
+        }
+
+        return "Conflict";
+    }
+
+    private String resolveMessageNotReadable(HttpMessageNotReadableException ex) {
+        Throwable cause = ex.getCause();
+        if (cause instanceof InvalidFormatException formatEx && formatEx.getPath() != null) {
+            String field = formatEx.getPath().stream()
+                    .map(ref -> ref.getFieldName())
+                    .filter(Objects::nonNull)
+                    .findFirst()
+                    .orElse(null);
+            if (field != null && !field.isBlank()) {
+                return field + ": invalid format";
+            }
+        }
+        return "Invalid request body";
     }
 }
