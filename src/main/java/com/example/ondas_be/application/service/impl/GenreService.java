@@ -4,6 +4,7 @@ import com.example.ondas_be.application.dto.request.CreateGenreRequest;
 import com.example.ondas_be.application.dto.request.UpdateGenreRequest;
 import com.example.ondas_be.application.dto.response.GenreResponse;
 import com.example.ondas_be.application.dto.common.PageResultDto;
+import com.example.ondas_be.application.exception.ErrorCodes;
 import com.example.ondas_be.application.exception.GenreNotFoundException;
 import com.example.ondas_be.application.exception.StorageOperationException;
 import com.example.ondas_be.application.mapper.GenreMapper;
@@ -55,7 +56,7 @@ public class GenreService implements GenreServicePort {
     @Transactional
     public GenreResponse updateGenre(Long id, UpdateGenreRequest request, MultipartFile coverFile) {
         Genre existing = genreRepoPort.findById(id)
-                .orElseThrow(() -> new GenreNotFoundException("Genre not found with id: " + id));
+                .orElseThrow(() -> new GenreNotFoundException(ErrorCodes.ERROR_GENRE_NOT_FOUND));
 
         String name = request.getName() != null ? request.getName().trim() : existing.getName();
         String slugCandidate = request.getSlug() != null ? request.getSlug()
@@ -88,7 +89,7 @@ public class GenreService implements GenreServicePort {
     @Transactional(readOnly = true)
     public GenreResponse getGenreById(Long id) {
         Genre genre = genreRepoPort.findById(id)
-                .orElseThrow(() -> new GenreNotFoundException("Genre not found with id: " + id));
+                .orElseThrow(() -> new GenreNotFoundException(ErrorCodes.ERROR_GENRE_NOT_FOUND));
         return genreMapper.toResponse(genre);
     }
 
@@ -102,7 +103,7 @@ public class GenreService implements GenreServicePort {
     @Transactional(readOnly = true)
     public PageResultDto<GenreResponse> searchGenresByName(String query, String mode, int page, int size) {
         if (query == null || query.isBlank()) {
-            throw new IllegalArgumentException("Query is required");
+            throw new IllegalArgumentException(ErrorCodes.ERROR_QUERY_REQUIRED);
         }
         String normalizedMode = mode == null ? "contains" : mode.trim().toLowerCase();
         List<Genre> genres;
@@ -122,7 +123,7 @@ public class GenreService implements GenreServicePort {
     @Transactional
     public void deleteGenre(Long id) {
         Genre genre = genreRepoPort.findById(id)
-                .orElseThrow(() -> new GenreNotFoundException("Genre not found with id: " + id));
+                .orElseThrow(() -> new GenreNotFoundException(ErrorCodes.ERROR_GENRE_NOT_FOUND));
         deleteObject(genre.getCoverUrl());
         genreRepoPort.deleteById(id);
     }

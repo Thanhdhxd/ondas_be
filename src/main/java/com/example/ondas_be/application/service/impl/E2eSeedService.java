@@ -20,6 +20,7 @@ import java.io.ByteArrayInputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.UUID;
 
 @Slf4j
@@ -27,14 +28,6 @@ import java.util.UUID;
 @Profile("e2e")
 @RequiredArgsConstructor
 public class E2eSeedService implements E2eSeedServicePort {
-
-    private static final UUID ADMIN_USER_ID = UUID.fromString("11111111-1111-1111-1111-111111111111");
-    private static final UUID USER_ID = UUID.fromString("22222222-2222-2222-2222-222222222222");
-    private static final UUID SONG_ONE_ID = UUID.fromString("66666666-6666-6666-6666-666666666666");
-    private static final UUID SONG_TWO_ID = UUID.fromString("77777777-7777-7777-7777-777777777777");
-
-    private static final String AUDIO_OBJECT_ONE = "e2e/track-one.wav";
-    private static final String AUDIO_OBJECT_TWO = "e2e/track-two.wav";
 
     private static final int AUDIO_DURATION_SECONDS = 5;
     private static final int AUDIO_SAMPLE_RATE = 8000;
@@ -64,8 +57,8 @@ public class E2eSeedService implements E2eSeedServicePort {
     public void resetAndSeed() {
         log.info("E2E seed: resetting and seeding data");
         runSeedScript();
-        updateSeedUsers();
-        uploadSeedAudio();
+        updateAllSeedUserPasswords();
+        uploadAllPendingSongAudio();
         log.info("E2E seed: done");
     }
 
@@ -104,20 +97,37 @@ public class E2eSeedService implements E2eSeedServicePort {
         populator.execute(dataSource);
     }
 
-    private void updateSeedUsers() {
+    /**
+     * Updates password_hash for ALL users that still have 'PENDING' as their hash.
+     * This handles any number of seed users dynamically.
+     */
+    private void updateAllSeedUserPasswords() {
         String hash = passwordEncoder.encode(seedPassword);
-        jdbcTemplate.update(
-                "UPDATE users SET password_hash = ? WHERE id IN (?, ?)",
-                hash,
-                ADMIN_USER_ID,
-                USER_ID
+        int updated = jdbcTemplate.update(
+                "UPDATE users SET password_hash = ? WHERE password_hash = 'PENDING'",
+                hash
         );
+        log.info("E2E seed: updated passwords for {} users", updated);
     }
 
-    private void uploadSeedAudio() {
+    /**
+     * Uploads a silent WAV file for ALL songs that still have 'PENDING' as their audio_url.
+     * This handles any number of seed songs dynamically.
+     */
+    private void uploadAllPendingSongAudio() {
         byte[] audioBytes = buildSilentWavBytes(AUDIO_DURATION_SECONDS, AUDIO_SAMPLE_RATE);
-        upsertSongAudio(SONG_ONE_ID, AUDIO_OBJECT_ONE, audioBytes);
-        upsertSongAudio(SONG_TWO_ID, AUDIO_OBJECT_TWO, audioBytes);
+
+        List<UUID> pendingSongIds = jdbcTemplate.queryForList(
+                "SELECT id FROM songs WHERE audio_url = 'PENDING' ORDER BY id",
+                UUID.class
+        );
+
+        log.info("E2E seed: uploading audio for {} songs", pendingSongIds.size());
+
+        for (UUID songId : pendingSongIds) {
+            String objectName = "e2e/track-" + songId + ".wav";
+            upsertSongAudio(songId, objectName, audioBytes);
+        }
     }
 
     private void upsertSongAudio(UUID songId, String objectName, byte[] audioBytes) {

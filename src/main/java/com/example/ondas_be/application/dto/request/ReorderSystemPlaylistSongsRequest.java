@@ -9,6 +9,6 @@ import java.util.UUID;
 @Data
 public class ReorderSystemPlaylistSongsRequest {
 
-    @NotEmpty(message = "Song IDs are required")
+    @NotEmpty(message = "validation.not_empty")
     private List<UUID> songIds;
 }

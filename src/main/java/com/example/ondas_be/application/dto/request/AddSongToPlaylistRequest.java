@@ -8,6 +8,6 @@ import java.util.UUID;
 @Data
 public class AddSongToPlaylistRequest {
 
-    @NotNull(message = "Song ID is required")
+    @NotNull(message = "validation.not_null")
     private UUID songId;
 }

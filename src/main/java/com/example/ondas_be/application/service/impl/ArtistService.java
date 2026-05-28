@@ -6,6 +6,7 @@ import com.example.ondas_be.application.dto.request.UpdateArtistRequest;
 import com.example.ondas_be.application.dto.response.ArtistResponse;
 import com.example.ondas_be.application.dto.common.PageResultDto;
 import com.example.ondas_be.application.exception.ArtistNotFoundException;
+import com.example.ondas_be.application.exception.ErrorCodes;
 import com.example.ondas_be.application.exception.StorageOperationException;
 import com.example.ondas_be.application.mapper.ArtistMapper;
 import com.example.ondas_be.application.service.port.ArtistServicePort;
@@ -62,7 +63,7 @@ public class ArtistService implements ArtistServicePort {
     @Transactional
     public ArtistResponse updateArtist(UUID id, UpdateArtistRequest request, MultipartFile avatarFile) {
         Artist existing = artistRepoPort.findById(id)
-                .orElseThrow(() -> new ArtistNotFoundException("Artist not found with id: " + id));
+                .orElseThrow(() -> new ArtistNotFoundException(ErrorCodes.ERROR_ARTIST_NOT_FOUND));
 
         String name = request.getName() != null ? request.getName().trim() : existing.getName();
         String slugCandidate = request.getSlug() != null ? request.getSlug() : (request.getName() != null ? name : existing.getSlug());
@@ -96,7 +97,7 @@ public class ArtistService implements ArtistServicePort {
     @Transactional(readOnly = true)
     public ArtistResponse getArtistById(UUID id) {
         Artist artist = artistRepoPort.findById(id)
-                .orElseThrow(() -> new ArtistNotFoundException("Artist not found with id: " + id));
+                .orElseThrow(() -> new ArtistNotFoundException(ErrorCodes.ERROR_ARTIST_NOT_FOUND));
         return artistMapper.toResponse(artist);
     }
 
@@ -131,7 +132,7 @@ public class ArtistService implements ArtistServicePort {
     @Transactional
     public void deleteArtist(UUID id) {
         Artist artist = artistRepoPort.findById(id)
-                .orElseThrow(() -> new ArtistNotFoundException("Artist not found with id: " + id));
+                .orElseThrow(() -> new ArtistNotFoundException(ErrorCodes.ERROR_ARTIST_NOT_FOUND));
 
         deleteObject(artist.getAvatarUrl());
         artistRepoPort.deleteById(id);

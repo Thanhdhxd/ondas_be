@@ -11,7 +11,7 @@ import java.util.UUID;
 @Data
 public class CreateSongRequest {
 
-    @NotBlank(message = "Title is required")
+    @NotBlank(message = "validation.not_blank")
     private String title;
 
     private UUID albumId;
@@ -20,9 +20,9 @@ public class CreateSongRequest {
 
     private LocalDate releaseDate;
 
-    @NotEmpty(message = "Artist IDs are required")
+    @NotEmpty(message = "validation.not_empty")
     private List<UUID> artistIds;
 
-    @NotEmpty(message = "Genre IDs are required")
+    @NotEmpty(message = "validation.not_empty")
     private List<Long> genreIds;
 }

@@ -7,6 +7,7 @@ import com.example.ondas_be.application.dto.response.GenreSummaryResponse;
 import com.example.ondas_be.application.dto.response.SearchResponse;
 import com.example.ondas_be.application.dto.response.SearchSuggestionResponse;
 import com.example.ondas_be.application.dto.response.SongResponse;
+import com.example.ondas_be.application.exception.ErrorCodes;
 import com.example.ondas_be.application.exception.UserNotFoundException;
 import com.example.ondas_be.application.mapper.AlbumMapper;
 import com.example.ondas_be.application.mapper.ArtistMapper;
@@ -93,7 +94,7 @@ public class SearchService implements SearchServicePort {
 
     private String normalizeQuery(String query) {
         if (query == null || query.isBlank()) {
-            throw new IllegalArgumentException("Query is required");
+            throw new IllegalArgumentException(ErrorCodes.ERROR_QUERY_REQUIRED);
         }
         return query.trim();
     }
@@ -102,7 +103,7 @@ public class SearchService implements SearchServicePort {
     @Transactional(readOnly = true)
     public SearchSuggestionResponse getSuggestions(String userEmail) {
         User user = userRepoPort.findByEmail(userEmail)
-                .orElseThrow(() -> new UserNotFoundException("User not found: " + userEmail));
+                .orElseThrow(() -> new UserNotFoundException(ErrorCodes.ERROR_USER_NOT_FOUND));
 
         // Lịch sử tìm kiếm của user, loại bỏ trùng lặp giữ thứ tự gần nhất
         List<String> recentSearches = searchHistoryRepoPort
@@ -136,7 +137,7 @@ public class SearchService implements SearchServicePort {
     @Transactional
     public void saveSearchHistory(String query, String userEmail) {
         User user = userRepoPort.findByEmail(userEmail)
-                .orElseThrow(() -> new UserNotFoundException("User not found: " + userEmail));
+                .orElseThrow(() -> new UserNotFoundException(ErrorCodes.ERROR_USER_NOT_FOUND));
 
         // Xoá entry cũ cùng query để tránh trùng lặp, sau đó thêm mới (đẩy lên đầu)
         searchHistoryRepoPort.deleteByUserIdAndQuery(user.getId(), query.trim());
@@ -147,7 +148,7 @@ public class SearchService implements SearchServicePort {
     @Transactional
     public void clearSearchHistory(String userEmail) {
         User user = userRepoPort.findByEmail(userEmail)
-                .orElseThrow(() -> new UserNotFoundException("User not found: " + userEmail));
+                .orElseThrow(() -> new UserNotFoundException(ErrorCodes.ERROR_USER_NOT_FOUND));
         searchHistoryRepoPort.deleteAllByUserId(user.getId());
     }
 

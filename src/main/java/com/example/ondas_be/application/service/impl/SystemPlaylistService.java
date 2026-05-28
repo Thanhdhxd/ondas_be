@@ -9,6 +9,7 @@ import com.example.ondas_be.application.dto.request.UpdateSystemPlaylistRequest;
 import com.example.ondas_be.application.dto.response.PlaylistSongInfoResponse;
 import com.example.ondas_be.application.dto.response.SystemPlaylistResponse;
 import com.example.ondas_be.application.dto.response.SystemPlaylistSongResponse;
+import com.example.ondas_be.application.exception.ErrorCodes;
 import com.example.ondas_be.application.exception.InvalidCredentialsException;
 import com.example.ondas_be.application.exception.SongNotFoundException;
 import com.example.ondas_be.application.exception.StorageOperationException;
@@ -125,7 +126,7 @@ public class SystemPlaylistService implements SystemPlaylistServicePort {
     public SystemPlaylistResponse getActiveSystemPlaylistById(UUID id) {
         SystemPlaylist playlist = getSystemPlaylistOrThrow(id);
         if (!playlist.isActive()) {
-            throw new SystemPlaylistNotFoundException("System playlist not found with id: " + id);
+            throw new SystemPlaylistNotFoundException(ErrorCodes.ERROR_SYSTEM_PLAYLIST_NOT_FOUND);
         }
         return buildSystemPlaylistResponse(playlist, true);
     }
@@ -198,10 +199,10 @@ public class SystemPlaylistService implements SystemPlaylistServicePort {
 
         UUID songId = request.getSongId();
         if (!songRepoPort.existsById(songId)) {
-            throw new SongNotFoundException("Song not found with id: " + songId);
+            throw new SongNotFoundException(ErrorCodes.ERROR_SONG_NOT_FOUND);
         }
         if (systemPlaylistSongRepoPort.existsByPlaylistIdAndSongId(id, songId)) {
-            throw new SystemPlaylistSongAlreadyExistsException("Song already exists in system playlist");
+            throw new SystemPlaylistSongAlreadyExistsException(ErrorCodes.ERROR_SYSTEM_PLAYLIST_SONG_EXISTS);
         }
 
         int maxPos = systemPlaylistSongRepoPort.findMaxPositionByPlaylistId(id);
@@ -217,7 +218,7 @@ public class SystemPlaylistService implements SystemPlaylistServicePort {
         getSystemPlaylistOrThrow(id);
 
         if (!systemPlaylistSongRepoPort.existsByPlaylistIdAndSongId(id, songId)) {
-            throw new SystemPlaylistSongNotFoundException("Song is not in system playlist: " + songId);
+            throw new SystemPlaylistSongNotFoundException(ErrorCodes.ERROR_SYSTEM_PLAYLIST_SONG_NOT_FOUND);
         }
 
         systemPlaylistSongRepoPort.deleteByPlaylistIdAndSongId(id, songId);
@@ -236,7 +237,7 @@ public class SystemPlaylistService implements SystemPlaylistServicePort {
 
         List<UUID> existing = systemPlaylistSongRepoPort.findSongIdsByPlaylistId(id);
         if (existing.size() != newOrder.size() || !new HashSet<>(existing).equals(new HashSet<>(newOrder))) {
-            throw new SystemPlaylistReorderInvalidException("Reorder payload must contain all existing playlist songs exactly once");
+            throw new SystemPlaylistReorderInvalidException(ErrorCodes.ERROR_SYSTEM_PLAYLIST_REORDER_INVALID);
         }
 
         systemPlaylistSongRepoPort.updateSongOrder(id, newOrder);
@@ -245,15 +246,15 @@ public class SystemPlaylistService implements SystemPlaylistServicePort {
 
     private SystemPlaylist getSystemPlaylistOrThrow(UUID id) {
         return systemPlaylistRepoPort.findById(id)
-                .orElseThrow(() -> new SystemPlaylistNotFoundException("System playlist not found with id: " + id));
+                .orElseThrow(() -> new SystemPlaylistNotFoundException(ErrorCodes.ERROR_SYSTEM_PLAYLIST_NOT_FOUND));
     }
 
     private User resolveUser(String email) {
         if (email == null || email.isBlank()) {
-            throw new InvalidCredentialsException("Invalid credentials");
+            throw new InvalidCredentialsException(ErrorCodes.ERROR_INVALID_CREDENTIALS);
         }
         return userRepoPort.findByEmail(email)
-                .orElseThrow(() -> new UserNotFoundException("User not found: " + email));
+                .orElseThrow(() -> new UserNotFoundException(ErrorCodes.ERROR_USER_NOT_FOUND));
     }
 
     private SystemPlaylistResponse buildSystemPlaylistResponse(SystemPlaylist playlist, boolean includeSongs) {
@@ -303,7 +304,7 @@ public class SystemPlaylistService implements SystemPlaylistServicePort {
 
     private void validateNoDuplicates(List<UUID> songIds) {
         if (songIds.size() != new HashSet<>(songIds).size()) {
-            throw new SystemPlaylistReorderInvalidException("Song IDs in reorder payload must be unique");
+            throw new SystemPlaylistReorderInvalidException(ErrorCodes.ERROR_SYSTEM_PLAYLIST_REORDER_INVALID);
         }
     }
 

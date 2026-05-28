@@ -10,7 +10,7 @@ import lombok.Setter;
 @Data
 public class CreateSystemPlaylistRequest {
 
-    @NotBlank(message = "Name is required")
+    @NotBlank(message = "validation.not_blank")
     private String name;
 
     private String description;

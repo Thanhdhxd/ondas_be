@@ -11,7 +11,7 @@ import java.util.UUID;
 @Data
 public class CreateAlbumRequest {
 
-    @NotBlank(message = "Title is required")
+    @NotBlank(message = "validation.not_blank")
     private String title;
 
     private String slug;
@@ -22,6 +22,6 @@ public class CreateAlbumRequest {
 
     private String description;
 
-    @NotEmpty(message = "Artist IDs are required")
+    @NotEmpty(message = "validation.not_empty")
     private List<UUID> artistIds;
 }

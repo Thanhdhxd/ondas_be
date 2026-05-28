@@ -9,7 +9,7 @@ import lombok.Data;
 @Data
 public class UpdateStaticLyricsRequest {
 
-    @Size(max = 10, message = "Language code must not exceed 10 characters")
+    @Size(max = 10, message = "validation.size.max")
     private String language;
 
     private String plainText;

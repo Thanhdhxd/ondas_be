@@ -15,11 +15,11 @@ import java.util.List;
 public class SaveSyncedLyricsRequest {
 
     /** Language code, e.g. "en", "vi", "ja". */
-    @Size(max = 10, message = "Language code must not exceed 10 characters")
+    @Size(max = 10, message = "validation.size.max")
     private String language;
 
     /** The list of timed lyric lines — will replace all existing synced lines. */
-    @NotEmpty(message = "Synced lines must not be empty")
+    @NotEmpty(message = "validation.not_empty")
     @Valid
     private List<SyncedLyricsLineDto> lines;
 }

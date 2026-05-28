@@ -1,5 +1,6 @@
 package com.example.ondas_be.application.dto.common;
 
+import com.example.ondas_be.application.exception.ErrorCodes;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -18,7 +19,7 @@ public class ApiResponse<T> {
     public static <T> ApiResponse<T> success(T data) {
         return ApiResponse.<T>builder()
                 .success(true)
-                .message("OK")
+                .message(ErrorCodes.SUCCESS_OK)
                 .data(data)
                 .build();
     }

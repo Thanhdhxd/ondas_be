@@ -6,7 +6,7 @@ import lombok.Data;
 @Data
 public class CreateGenreRequest {
 
-    @NotBlank(message = "Name is required")
+    @NotBlank(message = "validation.not_blank")
     private String name;
 
     private String slug;

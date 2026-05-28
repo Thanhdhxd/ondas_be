@@ -3,6 +3,7 @@ package com.example.ondas_be.application.service.impl;
 import com.example.ondas_be.application.dto.request.ChangePasswordRequest;
 import com.example.ondas_be.application.dto.request.UpdateProfileRequest;
 import com.example.ondas_be.application.dto.response.UserProfileResponse;
+import com.example.ondas_be.application.exception.ErrorCodes;
 import com.example.ondas_be.application.exception.InvalidCurrentPasswordException;
 import com.example.ondas_be.application.exception.StorageOperationException;
 import com.example.ondas_be.application.exception.UserNotFoundException;
@@ -37,7 +38,7 @@ public class ProfileService implements ProfileServicePort {
     @Transactional(readOnly = true)
     public UserProfileResponse getMyProfile(String email) {
         User user = userRepoPort.findByEmail(email)
-                .orElseThrow(() -> new UserNotFoundException("User not found with email: " + email));
+                .orElseThrow(() -> new UserNotFoundException(ErrorCodes.ERROR_USER_NOT_FOUND));
 
         return toProfileResponse(user);
     }
@@ -46,7 +47,7 @@ public class ProfileService implements ProfileServicePort {
     @Transactional
     public UserProfileResponse updateMyProfile(String email, UpdateProfileRequest request) {
         User existing = userRepoPort.findByEmail(email)
-                .orElseThrow(() -> new UserNotFoundException("User not found with email: " + email));
+                .orElseThrow(() -> new UserNotFoundException(ErrorCodes.ERROR_USER_NOT_FOUND));
 
         User updated = new User(
                 existing.getId(),
@@ -70,7 +71,7 @@ public class ProfileService implements ProfileServicePort {
     @Transactional
     public UserProfileResponse updateAvatar(String email, MultipartFile avatarFile) {
         User existing = userRepoPort.findByEmail(email)
-                .orElseThrow(() -> new UserNotFoundException("User not found with email: " + email));
+                .orElseThrow(() -> new UserNotFoundException(ErrorCodes.ERROR_USER_NOT_FOUND));
 
         String newAvatarUrl = uploadImage(avatarFile, "users/avatar/");
 
@@ -133,11 +134,11 @@ public class ProfileService implements ProfileServicePort {
     @Transactional
     public void changePassword(String email, ChangePasswordRequest request) {
         User existing = userRepoPort.findByEmail(email)
-                .orElseThrow(() -> new UserNotFoundException("User not found with email: " + email));
+                .orElseThrow(() -> new UserNotFoundException(ErrorCodes.ERROR_USER_NOT_FOUND));
 
         // Xác minh mật khẩu hiện tại
         if (!passwordEncoder.matches(request.getCurrentPassword(), existing.getPasswordHash())) {
-            throw new InvalidCurrentPasswordException("Current password is incorrect");
+            throw new InvalidCurrentPasswordException(ErrorCodes.ERROR_CURRENT_PASSWORD_INVALID);
         }
 
         String newPasswordHash = passwordEncoder.encode(request.getNewPassword());

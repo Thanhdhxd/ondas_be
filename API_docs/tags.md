@@ -17,7 +17,7 @@ System tags are managed by Admin/Content Manager only.
 ### Create tag
 `POST /api/tags`
 
-**Auth**: `ADMIN`, `CONTENT_MANAGER`
+**Auth**: ✅ `ADMIN`, `CONTENT_MANAGER`
 
 **Request body**
 ```json
@@ -50,7 +50,7 @@ System tags are managed by Admin/Content Manager only.
 ### Update tag
 `PUT /api/tags/{id}`
 
-**Auth**: `ADMIN`, `CONTENT_MANAGER`
+**Auth**: ✅ `ADMIN`, `CONTENT_MANAGER`
 
 **Request body**
 ```json
@@ -78,7 +78,7 @@ System tags are managed by Admin/Content Manager only.
 ### Get tag by id
 `GET /api/tags/{id}`
 
-**Auth**: public
+**Auth**: ✅ Yêu cầu (JWT)
 
 **Response 200**
 ```json
@@ -97,7 +97,7 @@ System tags are managed by Admin/Content Manager only.
 ### Get all tags
 `GET /api/tags`
 
-**Auth**: public
+**Auth**: ✅ Yêu cầu (JWT)
 
 **Query params**
 - `type` (optional): `mood | theme | activity | era`
@@ -117,13 +117,15 @@ System tags are managed by Admin/Content Manager only.
 ### Search tags by name
 `GET /api/tags/search`
 
-**Auth**: public
+**Auth**: ✅ Yêu cầu (JWT)
 
 **Query params**
-- `query` (required)
-- `mode` (optional): `contains` (default), `startsWith`, `equals`
-- `page` (default: 0)
-- `size` (default: 20)
+| Param | Type | Bắt buộc | Mặc định | Mô tả |
+|---|---|---|---|---|
+| `query` | string | ✅ | — | Từ khóa |
+| `mode` | string | ❌ | `contains` | `contains`, `startsWith`, `equals` |
+| `page` | integer | ❌ | `0` | |
+| `size` | integer | ❌ | `20` | |
 
 **Response 200**
 ```json
@@ -145,7 +147,7 @@ System tags are managed by Admin/Content Manager only.
 ### Delete tag
 `DELETE /api/tags/{id}`
 
-**Auth**: `ADMIN`, `CONTENT_MANAGER`
+**Auth**: ✅ `ADMIN`, `CONTENT_MANAGER`
 
 **Response 200**
 ```json
@@ -164,7 +166,7 @@ Users only attach/detach existing tags to songs. No free text.
 ### Get tags of a song
 `GET /api/songs/{id}/tags`
 
-**Auth**: public
+**Auth**: ✅ Yêu cầu (JWT)
 
 **Response 200**
 ```json
@@ -181,7 +183,7 @@ Users only attach/detach existing tags to songs. No free text.
 ### Add tags to a song
 `POST /api/songs/{id}/tags`
 
-**Auth**: `ADMIN`, `CONTENT_MANAGER`
+**Auth**: ✅ `ADMIN`, `CONTENT_MANAGER`
 
 **Request body**
 ```json
@@ -206,7 +208,7 @@ Users only attach/detach existing tags to songs. No free text.
 ### Remove tags from a song
 `DELETE /api/songs/{id}/tags`
 
-**Auth**: `ADMIN`, `CONTENT_MANAGER`
+**Auth**: ✅ `ADMIN`, `CONTENT_MANAGER`
 
 **Request body**
 ```json
@@ -229,7 +231,7 @@ Users only attach/detach existing tags to songs. No free text.
 ### Replace tags of a song
 `PUT /api/songs/{id}/tags`
 
-**Auth**: `ADMIN`, `CONTENT_MANAGER`
+**Auth**: ✅ `ADMIN`, `CONTENT_MANAGER`
 
 **Request body**
 ```json
@@ -252,7 +254,7 @@ Users only attach/detach existing tags to songs. No free text.
 ### Filter songs by tags (multi-select)
 `GET /api/songs?tagIds=1&tagIds=4&tagIds=7&page=0&size=20`
 
-**Auth**: public
+**Auth**: ✅ Yêu cầu (JWT)
 
 **Notes**
 - Returns songs that match **all** provided tags.

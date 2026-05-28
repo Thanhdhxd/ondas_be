@@ -9,6 +9,7 @@ import com.example.ondas_be.application.dto.request.RegisterRequest;
 import com.example.ondas_be.application.dto.response.AuthResponse;
 import com.example.ondas_be.application.exception.AccountLockedException;
 import com.example.ondas_be.application.exception.EmailAlreadyExistsException;
+import com.example.ondas_be.application.exception.ErrorCodes;
 import com.example.ondas_be.application.exception.InvalidCredentialsException;
 import com.example.ondas_be.application.exception.InvalidTokenException;
 import com.example.ondas_be.application.exception.UserNotFoundException;
@@ -46,10 +47,10 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class AuthService implements AuthServicePort {
 
-    private static final String INVALID_CREDENTIALS_MESSAGE = "Invalid credentials";
-    private static final String INVALID_REFRESH_TOKEN_MESSAGE = "Invalid refresh token";
-    private static final String INVALID_OTP_MESSAGE = "Invalid or expired OTP";
-    private static final String ACCOUNT_LOCKED_MESSAGE = INVALID_CREDENTIALS_MESSAGE;
+    private static final String INVALID_CREDENTIALS_MESSAGE = ErrorCodes.ERROR_INVALID_CREDENTIALS;
+    private static final String INVALID_REFRESH_TOKEN_MESSAGE = ErrorCodes.ERROR_INVALID_TOKEN;
+    private static final String INVALID_OTP_MESSAGE = ErrorCodes.ERROR_INVALID_TOKEN;
+    private static final String ACCOUNT_LOCKED_MESSAGE = ErrorCodes.ERROR_ACCOUNT_LOCKED;
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private final Map<String, LoginAttemptState> loginAttempts = new ConcurrentHashMap<>();
@@ -79,7 +80,7 @@ public class AuthService implements AuthServicePort {
     public AuthResponse register(RegisterRequest request) {
         String normalizedEmail = normalizeEmail(request.getEmail());
         if (userRepoPort.existsByEmail(normalizedEmail)) {
-            throw new EmailAlreadyExistsException("Email already exists");
+            throw new EmailAlreadyExistsException(ErrorCodes.ERROR_EMAIL_EXISTS);
         }
 
         User userToCreate = new User(
@@ -172,7 +173,7 @@ public class AuthService implements AuthServicePort {
     public void forgotPassword(ForgotPasswordRequest request) {
         String normalizedEmail = normalizeEmail(request.getEmail());
         User user = userRepoPort.findByEmail(normalizedEmail)
-                .orElseThrow(() -> new UserNotFoundException("User not found with email: " + normalizedEmail));
+                .orElseThrow(() -> new UserNotFoundException(ErrorCodes.ERROR_USER_NOT_FOUND));
 
         String otp = generateOtp();
         String otpHash = hashToken(otp);
@@ -196,7 +197,7 @@ public class AuthService implements AuthServicePort {
     public void resetPassword(ResetPasswordRequest request) {
         String normalizedEmail = normalizeEmail(request.getEmail());
         User user = userRepoPort.findByEmail(normalizedEmail)
-                .orElseThrow(() -> new UserNotFoundException("User not found with email: " + normalizedEmail));
+                .orElseThrow(() -> new UserNotFoundException(ErrorCodes.ERROR_USER_NOT_FOUND));
 
         String otpHash = hashToken(request.getOtp().trim());
         OtpCode otpCode = otpCodeRepoPort.findActiveByUserIdAndCodeHash(user.getId(), otpHash)

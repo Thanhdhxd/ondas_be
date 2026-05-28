@@ -4,6 +4,7 @@ import com.example.ondas_be.application.dto.common.PageResultDto;
 import com.example.ondas_be.application.dto.request.CreateTagRequest;
 import com.example.ondas_be.application.dto.request.UpdateTagRequest;
 import com.example.ondas_be.application.dto.response.TagResponse;
+import com.example.ondas_be.application.exception.ErrorCodes;
 import com.example.ondas_be.application.exception.TagNotFoundException;
 import com.example.ondas_be.application.mapper.TagMapper;
 import com.example.ondas_be.application.service.port.TagServicePort;
@@ -31,7 +32,7 @@ public class TagService implements TagServicePort {
     public TagResponse createTag(CreateTagRequest request) {
         String name = request.getName().trim();
         if (tagRepoPort.existsByName(name)) {
-            throw new IllegalArgumentException("Tag name already exists");
+            throw new IllegalArgumentException(ErrorCodes.ERROR_TAG_NAME_EXISTS);
         }
 
         String type = resolveType(request.getType(), true);
@@ -51,16 +52,16 @@ public class TagService implements TagServicePort {
     @Transactional
     public TagResponse updateTag(Long id, UpdateTagRequest request) {
         Tag existing = tagRepoPort.findById(id)
-                .orElseThrow(() -> new TagNotFoundException("Tag not found with id: " + id));
+                .orElseThrow(() -> new TagNotFoundException(ErrorCodes.ERROR_TAG_NOT_FOUND));
 
         String name = existing.getName();
         if (request.getName() != null) {
             String trimmed = request.getName().trim();
             if (trimmed.isBlank()) {
-                throw new IllegalArgumentException("Name is required");
+                throw new IllegalArgumentException(ErrorCodes.ERROR_TAG_NAME_REQUIRED);
             }
             if (!trimmed.equals(existing.getName()) && tagRepoPort.existsByName(trimmed)) {
-                throw new IllegalArgumentException("Tag name already exists");
+                throw new IllegalArgumentException(ErrorCodes.ERROR_TAG_NAME_EXISTS);
             }
             name = trimmed;
         }
@@ -87,7 +88,7 @@ public class TagService implements TagServicePort {
     @Transactional(readOnly = true)
     public TagResponse getTagById(Long id) {
         Tag tag = tagRepoPort.findById(id)
-                .orElseThrow(() -> new TagNotFoundException("Tag not found with id: " + id));
+                .orElseThrow(() -> new TagNotFoundException(ErrorCodes.ERROR_TAG_NOT_FOUND));
         return tagMapper.toResponse(tag);
     }
 
@@ -105,7 +106,7 @@ public class TagService implements TagServicePort {
     @Transactional(readOnly = true)
     public PageResultDto<TagResponse> searchTagsByName(String query, String mode, int page, int size) {
         if (query == null || query.isBlank()) {
-            throw new IllegalArgumentException("Query is required");
+            throw new IllegalArgumentException(ErrorCodes.ERROR_QUERY_REQUIRED);
         }
         String normalizedMode = mode == null ? "contains" : mode.trim().toLowerCase();
         List<Tag> tags;
@@ -125,7 +126,7 @@ public class TagService implements TagServicePort {
     @Transactional
     public void deleteTag(Long id) {
         Tag tag = tagRepoPort.findById(id)
-                .orElseThrow(() -> new TagNotFoundException("Tag not found with id: " + id));
+                .orElseThrow(() -> new TagNotFoundException(ErrorCodes.ERROR_TAG_NOT_FOUND));
         tagRepoPort.deleteById(tag.getId());
     }
 
@@ -134,11 +135,11 @@ public class TagService implements TagServicePort {
             if (defaultToMood) {
                 return "mood";
             }
-            throw new IllegalArgumentException("Type is required");
+            throw new IllegalArgumentException(ErrorCodes.ERROR_TAG_TYPE_REQUIRED);
         }
         String normalized = type.trim().toLowerCase();
         if (!ALLOWED_TYPES.contains(normalized)) {
-            throw new IllegalArgumentException("Invalid tag type: " + type);
+            throw new IllegalArgumentException(ErrorCodes.ERROR_TAG_TYPE_INVALID);
         }
         return normalized;
     }

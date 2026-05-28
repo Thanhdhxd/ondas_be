@@ -6,6 +6,6 @@ import lombok.Data;
 @Data
 public class BanUserRequest {
 
-    @NotBlank(message = "banReason must not be blank")
+    @NotBlank(message = "validation.not_blank")
     private String banReason;
 }

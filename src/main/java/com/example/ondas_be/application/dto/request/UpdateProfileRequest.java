@@ -11,7 +11,7 @@ import lombok.AllArgsConstructor;
 @AllArgsConstructor
 public class UpdateProfileRequest {
 
-    @NotBlank(message = "Display name must not be blank")
-    @Size(min = 1, max = 50, message = "Display name must be between 1 and 50 characters")
+    @NotBlank(message = "validation.not_blank")
+    @Size(min = 1, max = 50, message = "validation.size.range")
     private String displayName;
 }
