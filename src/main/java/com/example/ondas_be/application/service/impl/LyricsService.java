@@ -5,6 +5,7 @@ import com.example.ondas_be.application.dto.request.PatchLyricsRequest;
 import com.example.ondas_be.application.dto.request.SyncedLyricsLineDto;
 import com.example.ondas_be.application.dto.response.LyricsResponse;
 import com.example.ondas_be.application.dto.response.SyncedLyricsLineResponse;
+import com.example.ondas_be.application.exception.ErrorCodes;
 import com.example.ondas_be.application.exception.LyricsAlreadyExistsException;
 import com.example.ondas_be.application.exception.LyricsNotFoundException;
 import com.example.ondas_be.application.exception.SongNotFoundException;
@@ -40,8 +41,7 @@ public class LyricsService implements LyricsServicePort {
     @Transactional(readOnly = true)
     public LyricsResponse getLyricsBySongId(UUID songId) {
         Lyrics lyrics = lyricsRepoPort.findBySongId(songId)
-                .orElseThrow(() -> new LyricsNotFoundException(
-                        "Lyrics not found for song: " + songId));
+                .orElseThrow(() -> new LyricsNotFoundException(ErrorCodes.ERROR_LYRICS_NOT_FOUND));
 
         List<SyncedLyricsLineResponse> syncedLines = null;
         if (lyrics.isHasSynced()) {
@@ -59,9 +59,7 @@ public class LyricsService implements LyricsServicePort {
 
         // Lyrics là quan hệ 1-1 với song → không cho phép tạo trùng
         if (lyricsRepoPort.findBySongId(songId).isPresent()) {
-            throw new LyricsAlreadyExistsException(
-                    "Lyrics already exist for song: " + songId
-                    + ". Use PATCH to update.");
+            throw new LyricsAlreadyExistsException(ErrorCodes.ERROR_LYRICS_EXISTS);
         }
 
         // Tạo lyrics mới
@@ -88,8 +86,7 @@ public class LyricsService implements LyricsServicePort {
     @Transactional
     public LyricsResponse patchLyrics(UUID songId, PatchLyricsRequest request) {
         Lyrics lyrics = lyricsRepoPort.findBySongId(songId)
-                .orElseThrow(() -> new LyricsNotFoundException(
-                        "Lyrics not found for song: " + songId));
+                .orElseThrow(() -> new LyricsNotFoundException(ErrorCodes.ERROR_LYRICS_NOT_FOUND));
 
         boolean dirty = false;
 
@@ -144,8 +141,7 @@ public class LyricsService implements LyricsServicePort {
     @Transactional
     public void deleteLyrics(UUID songId) {
         Lyrics lyrics = lyricsRepoPort.findBySongId(songId)
-                .orElseThrow(() -> new LyricsNotFoundException(
-                        "Lyrics not found for song: " + songId));
+                .orElseThrow(() -> new LyricsNotFoundException(ErrorCodes.ERROR_LYRICS_NOT_FOUND));
 
         lyricsRepoPort.deleteById(lyrics.getId());
         // synced_lyrics_lines sẽ tự xoá nhờ ON DELETE CASCADE
@@ -157,7 +153,7 @@ public class LyricsService implements LyricsServicePort {
 
     private void ensureSongExists(UUID songId) {
         if (!songRepoPort.existsById(songId)) {
-            throw new SongNotFoundException("Song not found with id: " + songId);
+            throw new SongNotFoundException(ErrorCodes.ERROR_SONG_NOT_FOUND);
         }
     }
 
@@ -190,7 +186,7 @@ public class LyricsService implements LyricsServicePort {
      */
     private void validateSyncedLines(List<SyncedLyricsLineDto> lines) {
         if (lines == null || lines.isEmpty()) {
-            throw new SyncedLyricsValidationException("Synced lines must not be empty");
+            throw new SyncedLyricsValidationException(ErrorCodes.ERROR_LYRICS_SYNCED_INVALID);
         }
 
         // Sắp xếp theo lineIndex để validate tuần tự
@@ -200,18 +196,14 @@ public class LyricsService implements LyricsServicePort {
         // Kiểm tra lineIndex tuần tự từ 0
         for (int i = 0; i < sorted.size(); i++) {
             if (sorted.get(i).getLineIndex() != i) {
-                throw new SyncedLyricsValidationException(
-                        "lineIndex must be sequential starting from 0. Expected " + i
-                                + " but got " + sorted.get(i).getLineIndex());
+                throw new SyncedLyricsValidationException(ErrorCodes.ERROR_LYRICS_SYNCED_INVALID);
             }
         }
 
         // Kiểm tra từng dòng
         for (SyncedLyricsLineDto line : sorted) {
             if (line.getEndMs() != null && line.getEndMs() <= line.getStartMs()) {
-                throw new SyncedLyricsValidationException(
-                        "endMs must be greater than startMs. Got startMs=" + line.getStartMs()
-                                + ", endMs=" + line.getEndMs() + " at lineIndex=" + line.getLineIndex());
+                throw new SyncedLyricsValidationException(ErrorCodes.ERROR_LYRICS_SYNCED_INVALID);
             }
         }
 
@@ -222,18 +214,12 @@ public class LyricsService implements LyricsServicePort {
 
             // Nếu current có endMs, kiểm tra không vượt quá startMs của dòng tiếp theo
             if (current.getEndMs() != null && current.getEndMs() > next.getStartMs()) {
-                throw new SyncedLyricsValidationException(
-                        "Overlapping time ranges between lineIndex " + current.getLineIndex()
-                                + " (endMs=" + current.getEndMs() + ") and lineIndex "
-                                + next.getLineIndex() + " (startMs=" + next.getStartMs() + ")");
+                throw new SyncedLyricsValidationException(ErrorCodes.ERROR_LYRICS_SYNCED_INVALID);
             }
 
             // Đảm bảo startMs tăng dần (không giảm)
             if (current.getStartMs() > next.getStartMs()) {
-                throw new SyncedLyricsValidationException(
-                        "startMs must be non-decreasing. lineIndex " + current.getLineIndex()
-                                + " startMs=" + current.getStartMs() + " > lineIndex "
-                                + next.getLineIndex() + " startMs=" + next.getStartMs());
+                throw new SyncedLyricsValidationException(ErrorCodes.ERROR_LYRICS_SYNCED_INVALID);
             }
         }
     }

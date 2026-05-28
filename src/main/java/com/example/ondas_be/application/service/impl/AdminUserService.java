@@ -4,6 +4,7 @@ import com.example.ondas_be.application.dto.common.PageResultDto;
 import com.example.ondas_be.application.dto.request.AdminUserFilterRequest;
 import com.example.ondas_be.application.dto.request.BanUserRequest;
 import com.example.ondas_be.application.dto.response.AdminUserResponse;
+import com.example.ondas_be.application.exception.ErrorCodes;
 import com.example.ondas_be.application.exception.UserNotFoundException;
 import com.example.ondas_be.application.service.port.AdminUserServicePort;
 import com.example.ondas_be.domain.entity.User;
@@ -54,7 +55,7 @@ public class AdminUserService implements AdminUserServicePort {
     @Transactional(readOnly = true)
     public AdminUserResponse getUserById(UUID id) {
         User user = userRepoPort.findById(id)
-                .orElseThrow(() -> new UserNotFoundException("User not found with id: " + id));
+                .orElseThrow(() -> new UserNotFoundException(ErrorCodes.ERROR_USER_NOT_FOUND));
         return toAdminResponse(user);
     }
 
@@ -62,7 +63,7 @@ public class AdminUserService implements AdminUserServicePort {
     @Transactional
     public AdminUserResponse banUser(UUID id, BanUserRequest request) {
         User existing = userRepoPort.findById(id)
-                .orElseThrow(() -> new UserNotFoundException("User not found with id: " + id));
+                .orElseThrow(() -> new UserNotFoundException(ErrorCodes.ERROR_USER_NOT_FOUND));
 
         User banned = new User(
                 existing.getId(),
@@ -86,7 +87,7 @@ public class AdminUserService implements AdminUserServicePort {
     @Transactional
     public AdminUserResponse unbanUser(UUID id) {
         User existing = userRepoPort.findById(id)
-                .orElseThrow(() -> new UserNotFoundException("User not found with id: " + id));
+                .orElseThrow(() -> new UserNotFoundException(ErrorCodes.ERROR_USER_NOT_FOUND));
 
         User unbanned = new User(
                 existing.getId(),

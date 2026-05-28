@@ -12,18 +12,18 @@ import lombok.Data;
 public class SyncedLyricsLineDto {
 
     /** Start time in milliseconds (≥ 0). */
-    @NotNull(message = "startMs is required")
-    @PositiveOrZero(message = "startMs must be ≥ 0")
+    @NotNull(message = "validation.not_null")
+    @PositiveOrZero(message = "validation.positive_or_zero")
     private Integer startMs;
 
     /** End time in milliseconds (optional, must be > startMs if provided). */
     private Integer endMs;
 
     /** The text content of this line. */
-    @NotBlank(message = "lineText is required")
+    @NotBlank(message = "validation.not_blank")
     private String lineText;
 
     /** 0-based ordering index. */
-    @NotNull(message = "lineIndex is required")
+    @NotNull(message = "validation.not_null")
     private Short lineIndex;
 }

@@ -16,7 +16,7 @@ import java.util.List;
 public class PatchLyricsRequest {
 
     /** Language code, e.g. "en", "vi", "ja". */
-    @Size(max = 10, message = "Language code must not exceed 10 characters")
+    @Size(max = 10, message = "validation.size.max")
     private String language;
 
     /** Plain text lyrics (non-timed). Null means no change. */

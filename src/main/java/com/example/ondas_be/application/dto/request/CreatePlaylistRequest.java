@@ -7,8 +7,8 @@ import lombok.Data;
 @Data
 public class CreatePlaylistRequest {
 
-    @NotBlank(message = "Name is required")
-    @Size(max = 100, message = "Name must not exceed 100 characters")
+    @NotBlank(message = "validation.not_blank")
+    @Size(max = 100, message = "validation.size.max")
     private String name;
 
     private String description;

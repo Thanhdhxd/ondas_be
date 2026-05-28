@@ -11,6 +11,7 @@ import com.example.ondas_be.application.dto.response.TagResponse;
 import com.example.ondas_be.application.dto.common.PageResultDto;
 import com.example.ondas_be.application.exception.AlbumNotFoundException;
 import com.example.ondas_be.application.exception.ArtistNotFoundException;
+import com.example.ondas_be.application.exception.ErrorCodes;
 import com.example.ondas_be.application.exception.GenreNotFoundException;
 import com.example.ondas_be.application.exception.SongNotFoundException;
 import com.example.ondas_be.application.exception.StorageOperationException;
@@ -84,7 +85,7 @@ public class SongService implements SongServicePort {
     @Transactional
     public SongResponse createSong(CreateSongRequest request, MultipartFile audioFile, MultipartFile coverFile) {
         if (audioFile == null || audioFile.isEmpty()) {
-            throw new IllegalArgumentException("Audio file is required");
+            throw new IllegalArgumentException(ErrorCodes.ERROR_SONG_AUDIO_REQUIRED);
         }
 
         validateArtists(request.getArtistIds());
@@ -128,7 +129,7 @@ public class SongService implements SongServicePort {
     @Transactional
     public SongResponse updateSong(UUID id, UpdateSongRequest request, MultipartFile audioFile, MultipartFile coverFile) {
         Song existing = songRepoPort.findById(id)
-                .orElseThrow(() -> new SongNotFoundException("Song not found with id: " + id));
+                .orElseThrow(() -> new SongNotFoundException(ErrorCodes.ERROR_SONG_NOT_FOUND));
 
         if (request.getArtistIds() != null) {
             validateArtists(request.getArtistIds());
@@ -211,7 +212,7 @@ public class SongService implements SongServicePort {
     @Transactional(readOnly = true)
     public SongResponse getSongById(UUID id) {
         Song song = songRepoPort.findById(id)
-                .orElseThrow(() -> new SongNotFoundException("Song not found with id: " + id));
+                .orElseThrow(() -> new SongNotFoundException(ErrorCodes.ERROR_SONG_NOT_FOUND));
 
         List<UUID> artistIds = songArtistRepoPort.findArtistIdsBySongId(id);
         List<Long> genreIds = songGenreRepoPort.findGenreIdsBySongId(id);
@@ -243,19 +244,19 @@ public class SongService implements SongServicePort {
             total = songRepoPort.countByTagIds(filter.getTagIds());
         } else if (filter.getArtistId() != null) {
             if (!artistRepoPort.existsById(filter.getArtistId())) {
-                throw new ArtistNotFoundException("Artist not found with id: " + filter.getArtistId());
+                throw new ArtistNotFoundException(ErrorCodes.ERROR_ARTIST_NOT_FOUND);
             }
             songs = songRepoPort.findByArtistId(filter.getArtistId(), page, size);
             total = songRepoPort.countByArtistId(filter.getArtistId());
         } else if (filter.getAlbumId() != null) {
             if (!albumRepoPort.existsById(filter.getAlbumId())) {
-                throw new AlbumNotFoundException("Album not found with id: " + filter.getAlbumId());
+                throw new AlbumNotFoundException(ErrorCodes.ERROR_ALBUM_NOT_FOUND);
             }
             songs = songRepoPort.findByAlbumId(filter.getAlbumId(), page, size);
             total = songRepoPort.countByAlbumId(filter.getAlbumId());
         } else if (filter.getGenreId() != null) {
             if (!genreRepoPort.existsById(filter.getGenreId())) {
-                throw new GenreNotFoundException("Genre not found with id: " + filter.getGenreId());
+                throw new GenreNotFoundException(ErrorCodes.ERROR_GENRE_NOT_FOUND);
             }
             songs = songRepoPort.findByGenreId(filter.getGenreId(), page, size);
             total = songRepoPort.countByGenreId(filter.getGenreId());
@@ -298,7 +299,7 @@ public class SongService implements SongServicePort {
     @Transactional
     public void deleteSong(UUID id) {
         Song song = songRepoPort.findById(id)
-                .orElseThrow(() -> new SongNotFoundException("Song not found with id: " + id));
+                .orElseThrow(() -> new SongNotFoundException(ErrorCodes.ERROR_SONG_NOT_FOUND));
 
         deleteObject(audioBucket, song.getAudioUrl());
         deleteObject(imageBucket, song.getCoverUrl());
@@ -312,9 +313,9 @@ public class SongService implements SongServicePort {
     @Transactional(readOnly = true)
     public List<TagResponse> getSongTags(UUID songId) {
         Song song = songRepoPort.findById(songId)
-                .orElseThrow(() -> new SongNotFoundException("Song not found with id: " + songId));
+                .orElseThrow(() -> new SongNotFoundException(ErrorCodes.ERROR_SONG_NOT_FOUND));
         if (!song.isActive()) {
-            throw new SongNotFoundException("Song not found with id: " + songId);
+            throw new SongNotFoundException(ErrorCodes.ERROR_SONG_NOT_FOUND);
         }
         List<Long> tagIds = songTagRepoPort.findTagIdsBySongId(songId);
         return fetchTagResponses(tagIds);
@@ -324,7 +325,7 @@ public class SongService implements SongServicePort {
     @Transactional
     public List<TagResponse> addSongTags(UUID songId, List<Long> tagIds) {
         if (tagIds == null || tagIds.isEmpty()) {
-            throw new IllegalArgumentException("Tag IDs are required");
+            throw new IllegalArgumentException(ErrorCodes.ERROR_TAG_IDS_REQUIRED);
         }
         validateTags(tagIds);
         ensureSongExists(songId);
@@ -339,7 +340,7 @@ public class SongService implements SongServicePort {
     @Transactional
     public List<TagResponse> removeSongTags(UUID songId, List<Long> tagIds) {
         if (tagIds == null || tagIds.isEmpty()) {
-            throw new IllegalArgumentException("Tag IDs are required");
+            throw new IllegalArgumentException(ErrorCodes.ERROR_TAG_IDS_REQUIRED);
         }
         validateTags(tagIds);
         ensureSongExists(songId);
@@ -356,7 +357,7 @@ public class SongService implements SongServicePort {
     @Transactional
     public List<TagResponse> replaceSongTags(UUID songId, List<Long> tagIds) {
         if (tagIds == null) {
-            throw new IllegalArgumentException("Tag IDs are required");
+            throw new IllegalArgumentException(ErrorCodes.ERROR_TAG_IDS_REQUIRED);
         }
         validateTags(tagIds);
         ensureSongExists(songId);
@@ -369,7 +370,7 @@ public class SongService implements SongServicePort {
     private void validateArtists(List<UUID> artistIds) {
         for (UUID artistId : artistIds) {
             if (!artistRepoPort.existsById(artistId)) {
-                throw new ArtistNotFoundException("Artist not found with id: " + artistId);
+                throw new ArtistNotFoundException(ErrorCodes.ERROR_ARTIST_NOT_FOUND);
             }
         }
     }
@@ -377,7 +378,7 @@ public class SongService implements SongServicePort {
     private void validateGenres(List<Long> genreIds) {
         for (Long genreId : genreIds) {
             if (!genreRepoPort.existsById(genreId)) {
-                throw new GenreNotFoundException("Genre not found with id: " + genreId);
+                throw new GenreNotFoundException(ErrorCodes.ERROR_GENRE_NOT_FOUND);
             }
         }
     }
@@ -392,13 +393,13 @@ public class SongService implements SongServicePort {
             List<Long> missing = tagIds.stream().distinct()
                     .filter(id -> !found.contains(id))
                     .toList();
-            throw new TagNotFoundException("Tag not found with ids: " + missing);
+            throw new TagNotFoundException(ErrorCodes.ERROR_TAG_NOT_FOUND);
         }
     }
 
     private void validateAlbum(UUID albumId) {
         if (albumId != null && !albumRepoPort.existsById(albumId)) {
-            throw new AlbumNotFoundException("Album not found with id: " + albumId);
+            throw new AlbumNotFoundException(ErrorCodes.ERROR_ALBUM_NOT_FOUND);
         }
     }
 
@@ -441,7 +442,7 @@ public class SongService implements SongServicePort {
 
     private void ensureSongExists(UUID songId) {
         if (!songRepoPort.existsById(songId)) {
-            throw new SongNotFoundException("Song not found with id: " + songId);
+            throw new SongNotFoundException(ErrorCodes.ERROR_SONG_NOT_FOUND);
         }
     }
 
@@ -531,19 +532,19 @@ public class SongService implements SongServicePort {
     public SongStreamResponse streamSong(UUID id, String rangeHeader) {
         log.info("Streaming song with id: {}, range: {}", id, rangeHeader);
         Song song = songRepoPort.findById(id)
-                .orElseThrow(() -> new SongNotFoundException("Song not found with id: " + id));
+                .orElseThrow(() -> new SongNotFoundException(ErrorCodes.ERROR_SONG_NOT_FOUND));
 
         if (!song.isActive()) {
-            throw new SongNotFoundException("Song not found with id: " + id);
+            throw new SongNotFoundException(ErrorCodes.ERROR_SONG_NOT_FOUND);
         }
 
         if (song.getAudioUrl() == null || song.getAudioUrl().isBlank()) {
-            throw new SongNotFoundException("Audio source not found for song id: " + id);
+            throw new SongNotFoundException(ErrorCodes.ERROR_SONG_AUDIO_SOURCE_NOT_FOUND);
         }
 
         String objectName = storagePort.extractObjectName(audioBucket, song.getAudioUrl());
         if (objectName == null || objectName.isBlank()) {
-            throw new SongNotFoundException("Audio source not found for song id: " + id);
+            throw new SongNotFoundException(ErrorCodes.ERROR_SONG_AUDIO_SOURCE_NOT_FOUND);
         }
         long totalSize = song.getAudioSizeBytes() != null ? song.getAudioSizeBytes() : -1L;
         String contentType = resolveContentType(song.getAudioFormat());

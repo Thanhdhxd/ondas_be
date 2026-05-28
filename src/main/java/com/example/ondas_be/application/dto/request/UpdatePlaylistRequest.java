@@ -6,7 +6,7 @@ import lombok.Data;
 @Data
 public class UpdatePlaylistRequest {
 
-    @Size(max = 100, message = "Name must not exceed 100 characters")
+    @Size(max = 100, message = "validation.size.max")
     private String name;
     private String description;
     private Boolean isPublic;

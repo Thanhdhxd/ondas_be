@@ -14,7 +14,7 @@ import java.util.List;
 public class CreateLyricsRequest {
 
     /** Language code, e.g. "en", "vi", "ja". */
-    @Size(max = 10, message = "Language code must not exceed 10 characters")
+    @Size(max = 10, message = "validation.size.max")
     private String language;
 
     /** Plain text lyrics (non-timed). */

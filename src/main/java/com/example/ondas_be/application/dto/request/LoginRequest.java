@@ -12,12 +12,12 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class LoginRequest {
 
-    @NotBlank(message = "Email is required")
-    @Email(message = "Email is invalid")
-    @Size(max = 255, message = "Email must not exceed 255 characters")
+    @NotBlank(message = "validation.not_blank")
+    @Email(message = "validation.email")
+    @Size(max = 255, message = "validation.size.max")
     private String email;
 
-    @NotBlank(message = "Password is required")
+    @NotBlank(message = "validation.not_blank")
     private String password;
 
     public void setEmail(String email) {

@@ -8,6 +8,7 @@ import com.example.ondas_be.application.dto.response.SongSummaryResponse;
 import com.example.ondas_be.application.dto.common.PageResultDto;
 import com.example.ondas_be.application.exception.AlbumNotFoundException;
 import com.example.ondas_be.application.exception.ArtistNotFoundException;
+import com.example.ondas_be.application.exception.ErrorCodes;
 import com.example.ondas_be.application.exception.StorageOperationException;
 import com.example.ondas_be.application.dto.response.ArtistSummaryResponse;
 import com.example.ondas_be.application.mapper.AlbumMapper;
@@ -85,7 +86,7 @@ public class AlbumService implements AlbumServicePort {
     @Transactional
     public AlbumResponse updateAlbum(UUID id, UpdateAlbumRequest request, MultipartFile coverFile) {
         Album existing = albumRepoPort.findById(id)
-                .orElseThrow(() -> new AlbumNotFoundException("Album not found with id: " + id));
+                .orElseThrow(() -> new AlbumNotFoundException(ErrorCodes.ERROR_ALBUM_NOT_FOUND));
 
         if (request.getArtistIds() != null) {
             validateArtists(request.getArtistIds());
@@ -140,7 +141,7 @@ public class AlbumService implements AlbumServicePort {
     @Transactional(readOnly = true)
     public AlbumResponse getAlbumById(UUID id) {
         Album album = albumRepoPort.findById(id)
-                .orElseThrow(() -> new AlbumNotFoundException("Album not found with id: " + id));
+                .orElseThrow(() -> new AlbumNotFoundException(ErrorCodes.ERROR_ALBUM_NOT_FOUND));
 
         List<UUID> artistIds = albumArtistRepoPort.findArtistIdsByAlbumId(id);
         long songCount = songRepoPort.countByAlbumId(id);
@@ -192,7 +193,7 @@ public class AlbumService implements AlbumServicePort {
     @Transactional
     public void deleteAlbum(UUID id) {
         Album album = albumRepoPort.findById(id)
-                .orElseThrow(() -> new AlbumNotFoundException("Album not found with id: " + id));
+                .orElseThrow(() -> new AlbumNotFoundException(ErrorCodes.ERROR_ALBUM_NOT_FOUND));
 
         deleteObject(album.getCoverUrl());
         albumArtistRepoPort.replaceAlbumArtists(id, List.of());
@@ -230,7 +231,7 @@ public class AlbumService implements AlbumServicePort {
     private void validateArtists(List<UUID> artistIds) {
         for (UUID artistId : artistIds) {
             if (!artistRepoPort.existsById(artistId)) {
-                throw new ArtistNotFoundException("Artist not found with id: " + artistId);
+                throw new ArtistNotFoundException(ErrorCodes.ERROR_ARTIST_NOT_FOUND);
             }
         }
     }

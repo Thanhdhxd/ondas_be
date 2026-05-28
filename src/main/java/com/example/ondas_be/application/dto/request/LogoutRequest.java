@@ -10,6 +10,6 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class LogoutRequest {
 
-    @NotBlank(message = "Refresh token is required")
+    @NotBlank(message = "validation.not_blank")
     private String refreshToken;
 }

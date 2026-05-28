@@ -4,6 +4,7 @@ import com.example.ondas_be.application.dto.common.PageResultDto;
 import com.example.ondas_be.application.dto.response.ArtistSummaryResponse;
 import com.example.ondas_be.application.dto.response.FavoriteSongResponse;
 import com.example.ondas_be.application.dto.response.GenreSummaryResponse;
+import com.example.ondas_be.application.exception.ErrorCodes;
 import com.example.ondas_be.application.exception.FavoriteAlreadyExistsException;
 import com.example.ondas_be.application.exception.FavoriteNotFoundException;
 import com.example.ondas_be.application.exception.SongNotFoundException;
@@ -55,13 +56,13 @@ public class FavoriteService implements FavoriteServicePort {
         User user = resolveUser(email);
 
         Song song = songRepoPort.findById(songId)
-                .orElseThrow(() -> new SongNotFoundException("Song not found with id: " + songId));
+                .orElseThrow(() -> new SongNotFoundException(ErrorCodes.ERROR_SONG_NOT_FOUND));
         if (!song.isActive()) {
-            throw new SongNotFoundException("Song not found with id: " + songId);
+            throw new SongNotFoundException(ErrorCodes.ERROR_SONG_NOT_FOUND);
         }
 
         if (favoriteRepoPort.exists(user.getId(), songId)) {
-            throw new FavoriteAlreadyExistsException("Song is already in favorites");
+            throw new FavoriteAlreadyExistsException(ErrorCodes.ERROR_FAVORITE_EXISTS);
         }
 
         favoriteRepoPort.add(user.getId(), songId);
@@ -73,7 +74,7 @@ public class FavoriteService implements FavoriteServicePort {
         User user = resolveUser(email);
 
         if (!favoriteRepoPort.exists(user.getId(), songId)) {
-            throw new FavoriteNotFoundException("Song is not in favorites");
+            throw new FavoriteNotFoundException(ErrorCodes.ERROR_FAVORITE_NOT_FOUND);
         }
 
         favoriteRepoPort.remove(user.getId(), songId);
@@ -162,7 +163,7 @@ public class FavoriteService implements FavoriteServicePort {
 
     private User resolveUser(String email) {
         return userRepoPort.findByEmail(email)
-                .orElseThrow(() -> new UserNotFoundException("User not found: " + email));
+                .orElseThrow(() -> new UserNotFoundException(ErrorCodes.ERROR_USER_NOT_FOUND));
     }
 
     private PageResultDto<FavoriteSongResponse> buildEmptyPage(int page, int size) {

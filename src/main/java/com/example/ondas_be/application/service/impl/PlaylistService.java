@@ -10,6 +10,7 @@ import com.example.ondas_be.application.dto.response.ArtistSummaryResponse;
 import com.example.ondas_be.application.dto.response.PlaylistResponse;
 import com.example.ondas_be.application.dto.response.PlaylistSongInfoResponse;
 import com.example.ondas_be.application.dto.response.PlaylistSongResponse;
+import com.example.ondas_be.application.exception.ErrorCodes;
 import com.example.ondas_be.application.exception.InvalidCredentialsException;
 import com.example.ondas_be.application.exception.PlaylistAccessDeniedException;
 import com.example.ondas_be.application.exception.PlaylistNotFoundException;
@@ -128,7 +129,7 @@ public class PlaylistService implements PlaylistServicePort {
 
         UUID requesterId = resolveUserIdIfAuthenticated(email);
         if (!playlist.isPublic() && (requesterId == null || !playlist.getUserId().equals(requesterId))) {
-            throw new PlaylistAccessDeniedException("You do not have permission to access this playlist");
+            throw new PlaylistAccessDeniedException(ErrorCodes.ERROR_PLAYLIST_ACCESS_DENIED);
         }
 
         return buildPlaylistResponse(playlist, true);
@@ -150,7 +151,7 @@ public class PlaylistService implements PlaylistServicePort {
             total = playlistRepoPort.countByUserId(user.getId(), filter.getIsPublic(), query);
         } else {
             if (Boolean.FALSE.equals(filter.getIsPublic())) {
-                throw new IllegalArgumentException("isPublic=false requires owner=true");
+                throw new IllegalArgumentException(ErrorCodes.ERROR_PLAYLIST_VISIBILITY_INVALID);
             }
             playlists = playlistRepoPort.findPublic(query, page, size);
             total = playlistRepoPort.countPublic(query);
@@ -192,10 +193,10 @@ public class PlaylistService implements PlaylistServicePort {
 
         UUID songId = request.getSongId();
         if (songRepoPort.findById(songId).isEmpty()) {
-            throw new SongNotFoundException("Song not found with id: " + songId);
+            throw new SongNotFoundException(ErrorCodes.ERROR_SONG_NOT_FOUND);
         }
         if (playlistSongRepoPort.existsByPlaylistIdAndSongId(id, songId)) {
-            throw new PlaylistSongAlreadyExistsException("Song already exists in playlist");
+            throw new PlaylistSongAlreadyExistsException(ErrorCodes.ERROR_PLAYLIST_SONG_EXISTS);
         }
 
         int nextPosition = playlistSongRepoPort.findMaxPositionByPlaylistId(id) + 1;
@@ -211,7 +212,7 @@ public class PlaylistService implements PlaylistServicePort {
         Playlist playlist = ensureOwner(email, id);
 
         if (!playlistSongRepoPort.existsByPlaylistIdAndSongId(id, songId)) {
-            throw new PlaylistSongNotFoundException("Song is not in playlist: " + songId);
+            throw new PlaylistSongNotFoundException(ErrorCodes.ERROR_PLAYLIST_SONG_NOT_FOUND);
         }
 
         playlistSongRepoPort.deleteByPlaylistIdAndSongId(id, songId);
@@ -231,7 +232,7 @@ public class PlaylistService implements PlaylistServicePort {
 
         List<UUID> existing = playlistSongRepoPort.findSongIdsByPlaylistId(id);
         if (existing.size() != newOrder.size() || !new HashSet<>(existing).equals(new HashSet<>(newOrder))) {
-            throw new PlaylistReorderInvalidException("Reorder payload must contain all existing playlist songs exactly once");
+            throw new PlaylistReorderInvalidException(ErrorCodes.ERROR_PLAYLIST_REORDER_INVALID);
         }
 
         playlistSongRepoPort.updateSongOrder(id, newOrder);
@@ -243,22 +244,22 @@ public class PlaylistService implements PlaylistServicePort {
         Playlist playlist = getPlaylistOrThrow(playlistId);
 
         if (!playlist.getUserId().equals(user.getId())) {
-            throw new PlaylistAccessDeniedException("You do not have permission to modify this playlist");
+            throw new PlaylistAccessDeniedException(ErrorCodes.ERROR_PLAYLIST_ACCESS_DENIED);
         }
         return playlist;
     }
 
     private Playlist getPlaylistOrThrow(UUID id) {
         return playlistRepoPort.findById(id)
-                .orElseThrow(() -> new PlaylistNotFoundException("Playlist not found with id: " + id));
+                .orElseThrow(() -> new PlaylistNotFoundException(ErrorCodes.ERROR_PLAYLIST_NOT_FOUND));
     }
 
     private User resolveUser(String email) {
         if (email == null || email.isBlank()) {
-            throw new InvalidCredentialsException("Invalid credentials");
+            throw new InvalidCredentialsException(ErrorCodes.ERROR_INVALID_CREDENTIALS);
         }
         return userRepoPort.findByEmail(email)
-                .orElseThrow(() -> new UserNotFoundException("User not found: " + email));
+                .orElseThrow(() -> new UserNotFoundException(ErrorCodes.ERROR_USER_NOT_FOUND));
     }
 
     private UUID resolveUserIdIfAuthenticated(String email) {
@@ -348,7 +349,7 @@ public class PlaylistService implements PlaylistServicePort {
 
     private void validateNoDuplicates(List<UUID> songIds) {
         if (songIds.size() != new HashSet<>(songIds).size()) {
-            throw new PlaylistReorderInvalidException("Song IDs in reorder payload must be unique");
+            throw new PlaylistReorderInvalidException(ErrorCodes.ERROR_PLAYLIST_REORDER_INVALID);
         }
     }
 
@@ -381,14 +382,14 @@ public class PlaylistService implements PlaylistServicePort {
 
     private String normalizeName(String name) {
         if (name == null) {
-            throw new IllegalArgumentException("Name is required");
+            throw new IllegalArgumentException(ErrorCodes.ERROR_PLAYLIST_NAME_REQUIRED);
         }
         String trimmed = name.trim();
         if (trimmed.isEmpty()) {
-            throw new IllegalArgumentException("Name is required");
+            throw new IllegalArgumentException(ErrorCodes.ERROR_PLAYLIST_NAME_REQUIRED);
         }
         if (trimmed.length() > PLAYLIST_NAME_MAX_LENGTH) {
-            throw new IllegalArgumentException("Name must not exceed " + PLAYLIST_NAME_MAX_LENGTH + " characters");
+            throw new IllegalArgumentException(ErrorCodes.ERROR_PLAYLIST_NAME_TOO_LONG);
         }
         return trimmed;
     }
