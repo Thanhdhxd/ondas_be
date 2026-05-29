@@ -27,11 +27,15 @@ public class E2eStorageController {
 
     private final StoragePort storagePort;
 
-    @GetMapping("/{bucket}/{objectName:.+}")
+    @GetMapping("/{bucket}/{*objectName}")
     public ResponseEntity<InputStreamResource> getObject(
             @PathVariable String bucket,
             @PathVariable String objectName,
             @RequestHeader(value = HttpHeaders.RANGE, required = false) String rangeHeader) {
+
+        if (objectName != null && objectName.startsWith("/")) {
+            objectName = objectName.substring(1);
+        }
 
         byte[] data = loadObject(bucket, objectName);
         long totalSize = data.length;
