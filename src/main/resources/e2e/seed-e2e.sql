@@ -50,6 +50,11 @@ INSERT INTO users (
   -- Second normal user (Playlist TC#34: cross-user access test)
   ('cccccccc-cccc-cccc-cccc-cccccccccccc', 'user2@e2e.local', 'PENDING',
    'E2E User Two', NULL, true,
+   NULL, NULL, NULL, 'USER', NOW(), NOW()),
+  -- Lockable user (Login TC#28: brute-force / account-lock test)
+  -- Dedicated account so that user@e2e.local is never locked during test runs.
+  ('dddddddd-dddd-dddd-dddd-dddddddddddd', 'lockable@e2e.local', 'PENDING',
+   'Lockable User', NULL, true,
    NULL, NULL, NULL, 'USER', NOW(), NOW());
 
 -- ============================================================
