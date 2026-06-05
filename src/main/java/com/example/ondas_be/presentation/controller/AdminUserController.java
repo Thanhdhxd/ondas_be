@@ -19,6 +19,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
+import com.example.ondas_be.infrastructure.logging.AuditLog;
+import com.example.ondas_be.domain.constant.AuditAction;
 
 @RestController
 @RequestMapping("/api/admin/users")
@@ -52,6 +54,7 @@ public class AdminUserController {
      * Ban một user (yêu cầu lý do)
      */
     @PatchMapping("/{id}/ban")
+    @AuditLog(action = AuditAction.BAN_USER, resourceType = "USER")
     public ResponseEntity<ApiResponse<AdminUserResponse>> banUser(
             @PathVariable UUID id,
             @Valid @RequestBody BanUserRequest request) {
@@ -63,6 +66,7 @@ public class AdminUserController {
      * Unban một user
      */
     @PatchMapping("/{id}/unban")
+    @AuditLog(action = AuditAction.UNBAN_USER, resourceType = "USER")
     public ResponseEntity<ApiResponse<AdminUserResponse>> unbanUser(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.success(adminUserServicePort.unbanUser(id)));
     }

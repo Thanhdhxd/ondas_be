@@ -30,6 +30,8 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.UUID;
+import com.example.ondas_be.infrastructure.logging.AuditLog;
+import com.example.ondas_be.domain.constant.AuditAction;
 
 @RestController
 @RequestMapping("/api/admin/system-playlists")
@@ -40,6 +42,7 @@ public class AdminSystemPlaylistController {
     private final SystemPlaylistServicePort systemPlaylistServicePort;
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @AuditLog(action = AuditAction.CREATE_SYSTEM_PLAYLIST, resourceType = "SYSTEM_PLAYLIST")
     public ResponseEntity<ApiResponse<SystemPlaylistResponse>> createSystemPlaylist(
             @AuthenticationPrincipal UserDetails userDetails,
             @Valid @RequestPart("data") CreateSystemPlaylistRequest request,
@@ -53,6 +56,7 @@ public class AdminSystemPlaylistController {
     }
 
     @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @AuditLog(action = AuditAction.UPDATE_SYSTEM_PLAYLIST, resourceType = "SYSTEM_PLAYLIST")
     public ResponseEntity<ApiResponse<SystemPlaylistResponse>> updateSystemPlaylist(
             @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable UUID id,
@@ -81,12 +85,14 @@ public class AdminSystemPlaylistController {
     }
 
     @DeleteMapping("/{id}")
+    @AuditLog(action = AuditAction.DELETE_SYSTEM_PLAYLIST, resourceType = "SYSTEM_PLAYLIST")
     public ResponseEntity<ApiResponse<Void>> deleteSystemPlaylist(@PathVariable UUID id) {
         systemPlaylistServicePort.deleteSystemPlaylist(id);
         return ResponseEntity.ok(ApiResponse.success(null));
     }
 
     @PostMapping("/{id}/songs")
+    @AuditLog(action = AuditAction.ADD_SONG_TO_SYSTEM_PLAYLIST, resourceType = "SYSTEM_PLAYLIST")
     public ResponseEntity<ApiResponse<SystemPlaylistResponse>> addSongToSystemPlaylist(
             @PathVariable UUID id,
             @Valid @RequestBody AddSongToSystemPlaylistRequest request) {
@@ -95,6 +101,7 @@ public class AdminSystemPlaylistController {
     }
 
     @DeleteMapping("/{id}/songs/{songId}")
+    @AuditLog(action = AuditAction.REMOVE_SONG_FROM_SYSTEM_PLAYLIST, resourceType = "SYSTEM_PLAYLIST")
     public ResponseEntity<ApiResponse<SystemPlaylistResponse>> removeSongFromSystemPlaylist(
             @PathVariable UUID id,
             @PathVariable UUID songId) {
@@ -103,6 +110,7 @@ public class AdminSystemPlaylistController {
     }
 
     @PutMapping("/{id}/songs/reorder")
+    @AuditLog(action = AuditAction.REORDER_SYSTEM_PLAYLIST_SONGS, resourceType = "SYSTEM_PLAYLIST")
     public ResponseEntity<ApiResponse<SystemPlaylistResponse>> reorderSystemPlaylistSongs(
             @PathVariable UUID id,
             @Valid @RequestBody ReorderSystemPlaylistSongsRequest request) {

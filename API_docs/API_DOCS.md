@@ -24,6 +24,8 @@
 - [Play History](#play-history)
   - [POST `/api/play-history`](#post-api-play-history)
   - [GET `/api/play-history`](#get-api-play-history)
+- [Thống kê cá nhân (User Stats)](user_stats.md)
+- [Thống kê nâng cao (Admin Stats)](admin_stats.md)
 - [Playlists](#playlists)
 - [Favorites](#favorites)
 - [Tags](#tagmood-api-standalone)
@@ -102,6 +104,7 @@ Mọi API đều trả về cấu trúc `ApiResponse<T>`:
 - `GET /api/songs/{id}/lyrics`, `GET /api/songs/{id}/tags`
 - `GET /api/tags`, `GET /api/tags/search`, `GET /api/tags/{id}`
 - `GET /api/system-playlists`, `GET /api/system-playlists/{id}`
+- `GET /api/stats/me/**` (xem [user_stats.md](user_stats.md))
 
 **Endpoint yêu cầu ADMIN hoặc CONTENT_MANAGER:**
 - `POST`, `PUT`, `DELETE` trên `/api/songs`, `/api/albums`, `/api/artists`, `/api/genres`
@@ -112,6 +115,7 @@ Mọi API đều trả về cấu trúc `ApiResponse<T>`:
 
 **Endpoint yêu cầu ADMIN:**
 - Tất cả `/api/admin/users/**`
+- Tất cả `/api/admin/stats/**` (xem [admin_stats.md](admin_stats.md))
 - Tất cả `/api/admin/e2e/**`
 
 ---

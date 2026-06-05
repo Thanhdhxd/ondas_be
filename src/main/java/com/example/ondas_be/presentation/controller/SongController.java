@@ -33,6 +33,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.UUID;
+import com.example.ondas_be.infrastructure.logging.AuditLog;
+import com.example.ondas_be.domain.constant.AuditAction;
 
 @RestController
 @RequestMapping("/api/songs")
@@ -43,6 +45,7 @@ public class SongController {
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasAnyRole('ADMIN','CONTENT_MANAGER')")
+    @AuditLog(action = AuditAction.CREATE_SONG, resourceType = "SONG")
     public ResponseEntity<ApiResponse<SongResponse>> createSong(
             @Valid @RequestPart("data") CreateSongRequest request,
             @RequestPart("audio") MultipartFile audioFile,
@@ -53,6 +56,7 @@ public class SongController {
 
     @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasAnyRole('ADMIN','CONTENT_MANAGER')")
+    @AuditLog(action = AuditAction.UPDATE_SONG, resourceType = "SONG")
     public ResponseEntity<ApiResponse<SongResponse>> updateSong(
             @PathVariable UUID id,
             @RequestPart("data") UpdateSongRequest request,
@@ -75,6 +79,7 @@ public class SongController {
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN','CONTENT_MANAGER')")
+    @AuditLog(action = AuditAction.DELETE_SONG, resourceType = "SONG")
     public ResponseEntity<ApiResponse<Void>> deleteSong(@PathVariable UUID id) {
         songServicePort.deleteSong(id);
         return ResponseEntity.ok(ApiResponse.success(null));
@@ -87,6 +92,7 @@ public class SongController {
 
     @PostMapping("/{id}/tags")
     @PreAuthorize("hasAnyRole('ADMIN','CONTENT_MANAGER')")
+    @AuditLog(action = AuditAction.ADD_SONG_TAGS, resourceType = "SONG")
     public ResponseEntity<ApiResponse<List<TagResponse>>> addSongTags(
             @PathVariable UUID id,
             @RequestBody SongTagRequest request) {
@@ -95,6 +101,7 @@ public class SongController {
 
     @DeleteMapping("/{id}/tags")
     @PreAuthorize("hasAnyRole('ADMIN','CONTENT_MANAGER')")
+    @AuditLog(action = AuditAction.REMOVE_SONG_TAGS, resourceType = "SONG")
     public ResponseEntity<ApiResponse<List<TagResponse>>> removeSongTags(
             @PathVariable UUID id,
             @RequestBody SongTagRequest request) {
@@ -103,6 +110,7 @@ public class SongController {
 
     @PutMapping("/{id}/tags")
     @PreAuthorize("hasAnyRole('ADMIN','CONTENT_MANAGER')")
+    @AuditLog(action = AuditAction.REPLACE_SONG_TAGS, resourceType = "SONG")
     public ResponseEntity<ApiResponse<List<TagResponse>>> replaceSongTags(
             @PathVariable UUID id,
             @RequestBody SongTagRequest request) {

@@ -25,6 +25,8 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.UUID;
+import com.example.ondas_be.infrastructure.logging.AuditLog;
+import com.example.ondas_be.domain.constant.AuditAction;
 
 @RestController
 @RequestMapping("/api/albums")
@@ -35,6 +37,7 @@ public class AlbumController {
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasAnyRole('ADMIN','CONTENT_MANAGER')")
+    @AuditLog(action = AuditAction.CREATE_ALBUM, resourceType = "ALBUM")
     public ResponseEntity<ApiResponse<AlbumResponse>> createAlbum(
             @Valid @RequestPart("data") CreateAlbumRequest request,
             @RequestPart(value = "cover", required = false) MultipartFile coverFile) {
@@ -44,6 +47,7 @@ public class AlbumController {
 
     @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasAnyRole('ADMIN','CONTENT_MANAGER')")
+    @AuditLog(action = AuditAction.UPDATE_ALBUM, resourceType = "ALBUM")
     public ResponseEntity<ApiResponse<AlbumResponse>> updateAlbum(
             @PathVariable UUID id,
             @RequestPart("data") UpdateAlbumRequest request,
@@ -65,6 +69,7 @@ public class AlbumController {
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN','CONTENT_MANAGER')")
+    @AuditLog(action = AuditAction.DELETE_ALBUM, resourceType = "ALBUM")
     public ResponseEntity<ApiResponse<Void>> deleteAlbum(@PathVariable UUID id) {
         albumServicePort.deleteAlbum(id);
         return ResponseEntity.ok(ApiResponse.success(null));

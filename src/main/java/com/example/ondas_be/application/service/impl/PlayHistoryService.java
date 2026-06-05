@@ -83,14 +83,14 @@ public class PlayHistoryService implements PlayHistoryServicePort {
 
     @Override
     @Transactional
-    public void recordPlay(UUID songId, String email, String source) {
+    public void recordPlay(UUID songId, String email, String source, Integer durationPlayedSeconds, Boolean completed) {
         User user = resolveUser(email);
         Song song = songRepoPort.findById(songId)
                 .orElseThrow(() -> new SongNotFoundException("Song not found with id: " + songId));
         if (!song.isActive()) {
             throw new SongNotFoundException("Song not found with id: " + songId);
         }
-        PlayHistory history = new PlayHistory(null, user.getId(), songId, null, source);
+        PlayHistory history = new PlayHistory(null, user.getId(), songId, null, source, durationPlayedSeconds, completed);
         playHistoryRepoPort.save(history);
         songRepoPort.incrementPlayCount(songId);
     }

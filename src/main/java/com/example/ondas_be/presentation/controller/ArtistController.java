@@ -25,6 +25,8 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.UUID;
+import com.example.ondas_be.infrastructure.logging.AuditLog;
+import com.example.ondas_be.domain.constant.AuditAction;
 
 @RestController
 @RequestMapping("/api/artists")
@@ -35,6 +37,7 @@ public class ArtistController {
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasAnyRole('ADMIN','CONTENT_MANAGER')")
+    @AuditLog(action = AuditAction.CREATE_ARTIST, resourceType = "ARTIST")
     public ResponseEntity<ApiResponse<ArtistResponse>> createArtist(
             @Valid @RequestPart("data") CreateArtistRequest request,
             @RequestPart(value = "avatar", required = false) MultipartFile avatarFile) {
@@ -44,6 +47,7 @@ public class ArtistController {
 
     @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasAnyRole('ADMIN','CONTENT_MANAGER')")
+    @AuditLog(action = AuditAction.UPDATE_ARTIST, resourceType = "ARTIST")
     public ResponseEntity<ApiResponse<ArtistResponse>> updateArtist(
             @PathVariable UUID id,
             @RequestPart("data") UpdateArtistRequest request,
@@ -65,6 +69,7 @@ public class ArtistController {
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN','CONTENT_MANAGER')")
+    @AuditLog(action = AuditAction.DELETE_ARTIST, resourceType = "ARTIST")
     public ResponseEntity<ApiResponse<Void>> deleteArtist(@PathVariable UUID id) {
         artistServicePort.deleteArtist(id);
         return ResponseEntity.ok(ApiResponse.success(null));

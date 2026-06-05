@@ -64,7 +64,7 @@ class PlayHistoryServiceTest {
     }
 
     private PlayHistory buildSavedHistory(Long id) {
-        return new PlayHistory(id, USER_ID, SONG_ID, LocalDateTime.now(), "home");
+        return new PlayHistory(id, USER_ID, SONG_ID, LocalDateTime.now(), "home", 30, false);
     }
 
     // ── getMyHistory ────────────────────────────────────────────────────────────
@@ -151,7 +151,7 @@ class PlayHistoryServiceTest {
         when(userRepoPort.findByEmail(EMAIL)).thenReturn(Optional.of(buildUser()));
         when(songRepoPort.findById(SONG_ID)).thenReturn(Optional.of(buildSong()));
 
-        playHistoryService.recordPlay(SONG_ID, EMAIL, "home");
+        playHistoryService.recordPlay(SONG_ID, EMAIL, "home", 30, false);
 
         verify(playHistoryRepoPort).save(any(PlayHistory.class));
         verify(songRepoPort).incrementPlayCount(SONG_ID);
@@ -163,7 +163,7 @@ class PlayHistoryServiceTest {
         when(songRepoPort.findById(SONG_ID)).thenReturn(Optional.empty());
 
         assertThrows(SongNotFoundException.class,
-                () -> playHistoryService.recordPlay(SONG_ID, EMAIL, "home"));
+                () -> playHistoryService.recordPlay(SONG_ID, EMAIL, "home", null, null));
         verify(playHistoryRepoPort, never()).save(any());
         verify(songRepoPort, never()).incrementPlayCount(any());
     }
@@ -177,7 +177,7 @@ class PlayHistoryServiceTest {
         when(songRepoPort.findById(SONG_ID)).thenReturn(Optional.of(inactiveSong));
 
         assertThrows(SongNotFoundException.class,
-                () -> playHistoryService.recordPlay(SONG_ID, EMAIL, "home"));
+                () -> playHistoryService.recordPlay(SONG_ID, EMAIL, "home", null, null));
         verify(playHistoryRepoPort, never()).save(any());
     }
 
@@ -186,6 +186,6 @@ class PlayHistoryServiceTest {
         when(userRepoPort.findByEmail(EMAIL)).thenReturn(Optional.empty());
 
         assertThrows(UserNotFoundException.class,
-                () -> playHistoryService.recordPlay(SONG_ID, EMAIL, "home"));
+                () -> playHistoryService.recordPlay(SONG_ID, EMAIL, "home", null, null));
     }
 }
