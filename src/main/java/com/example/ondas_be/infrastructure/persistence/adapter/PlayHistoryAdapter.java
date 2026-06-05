@@ -1,6 +1,8 @@
 package com.example.ondas_be.infrastructure.persistence.adapter;
 
+import com.example.ondas_be.domain.entity.ArtistPlayCount;
 import com.example.ondas_be.domain.entity.PlayHistory;
+import com.example.ondas_be.domain.entity.SongPlayCount;
 import com.example.ondas_be.domain.repoport.PlayHistoryRepoPort;
 import com.example.ondas_be.infrastructure.persistence.jparepo.PlayHistoryJpaRepo;
 import com.example.ondas_be.infrastructure.persistence.model.PlayHistoryModel;
@@ -51,5 +53,24 @@ public class PlayHistoryAdapter implements PlayHistoryRepoPort {
     @Transactional
     public void deleteByIdAndUserId(Long id, UUID userId) {
         playHistoryJpaRepo.deleteByIdAndUserId(id, userId);
+    }
+
+    @Override
+    public long sumListeningDurationByUserId(UUID userId) {
+        return playHistoryJpaRepo.sumListeningDurationByUserId(userId);
+    }
+
+    @Override
+    public List<SongPlayCount> findTopSongsByUserId(UUID userId, int limit) {
+        return playHistoryJpaRepo.findMyTopSongs(userId, limit).stream()
+                .map(row -> new SongPlayCount(row.getSongId(), row.getPlayCount() == null ? 0L : row.getPlayCount()))
+                .toList();
+    }
+
+    @Override
+    public List<ArtistPlayCount> findTopArtistsByUserId(UUID userId, int limit) {
+        return playHistoryJpaRepo.findMyTopArtists(userId, limit).stream()
+                .map(row -> new ArtistPlayCount(row.getArtistId(), row.getPlayCount() == null ? 0L : row.getPlayCount()))
+                .toList();
     }
 }

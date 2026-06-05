@@ -40,6 +40,8 @@ public interface PlayHistoryServicePort {
      * @param songId song identifier
      * @param email  authenticated user's email
      * @param source play source (e.g. "playlist", "home") — may be null
+     * @param durationPlayedSeconds duration in seconds that the user listened to the song
+     * @param completed whether the user listened to the song to completion
      */
-    void recordPlay(UUID songId, String email, String source);
+    void recordPlay(UUID songId, String email, String source, Integer durationPlayedSeconds, Boolean completed);
 }

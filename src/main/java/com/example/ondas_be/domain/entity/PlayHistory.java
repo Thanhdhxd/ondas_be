@@ -15,4 +15,6 @@ public class PlayHistory {
     private UUID songId;
     private LocalDateTime playedAt;
     private String source;
+    private Integer durationPlayedSeconds;
+    private Boolean completed;
 }

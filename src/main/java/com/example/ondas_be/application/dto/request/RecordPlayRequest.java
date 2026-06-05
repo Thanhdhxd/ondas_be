@@ -17,4 +17,8 @@ public class RecordPlayRequest {
                 message = "validation.pattern"
     )
     private String source;
+
+    private Integer durationPlayedSeconds;
+
+    private Boolean completed;
 }

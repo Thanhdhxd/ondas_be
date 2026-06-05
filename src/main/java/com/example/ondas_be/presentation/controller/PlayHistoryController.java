@@ -55,7 +55,13 @@ public class PlayHistoryController {
     public ResponseEntity<ApiResponse<Void>> recordPlay(
             @Valid @RequestBody RecordPlayRequest request,
             @AuthenticationPrincipal UserDetails userDetails) {
-        playHistoryServicePort.recordPlay(request.getSongId(), userDetails.getUsername(), request.getSource());
+        playHistoryServicePort.recordPlay(
+                request.getSongId(),
+                userDetails.getUsername(),
+                request.getSource(),
+                request.getDurationPlayedSeconds(),
+                request.getCompleted()
+        );
         return ResponseEntity.ok(ApiResponse.success(null));
     }
 }
