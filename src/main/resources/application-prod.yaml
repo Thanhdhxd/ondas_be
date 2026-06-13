@@ -58,3 +58,6 @@ logging:
   level:
     root: WARN
     com.example.ondas_be: INFO
+
+cors:
+  allowed-origin-patterns: ${CORS_ALLOWED_ORIGIN_PATTERNS:http://localhost:*}

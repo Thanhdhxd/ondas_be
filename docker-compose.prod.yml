@@ -48,6 +48,7 @@ services:
       MINIO_SECRET_KEY:           ${MINIO_ROOT_PASSWORD}
       MINIO_BUCKET_AUDIO:         ${MINIO_BUCKET_AUDIO}
       MINIO_BUCKET_IMAGE:         ${MINIO_BUCKET_IMAGE}
+      CORS_ALLOWED_ORIGIN_PATTERNS: ${CORS_ALLOWED_ORIGIN_PATTERNS}
     depends_on:
       postgres:
         condition: service_healthy
